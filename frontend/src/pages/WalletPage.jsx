@@ -32,7 +32,7 @@ export default function WalletPage() {
   return (
     <div className="p-6 max-w-xl mx-auto">
       <div className="mb-6">
-        <h1 className="text-xl font-bold text-gray-900">Wallet</h1>
+        <h1 className="text-xl font-bold text-gray-400">Wallet</h1>
         <p className="text-gray-500 text-sm mt-0.5">Your credits and transaction history</p>
       </div>
 
@@ -40,7 +40,7 @@ export default function WalletPage() {
       <div className="card p-6 mb-5 fade-up">
         <p className="text-gray-500 text-sm mb-1">Current balance</p>
         <div className="flex items-baseline gap-2 mb-4">
-          <span className="text-4xl font-extrabold text-gray-900">{wallet?.balance}</span>
+          <span className="text-4xl font-extrabold text-white">{wallet?.balance}</span>
           <span className="text-orange-500 font-semibold">credits</span>
         </div>
         <div className="grid grid-cols-2 gap-3">
@@ -56,7 +56,7 @@ export default function WalletPage() {
       </div>
 
       {/* History */}
-      <h2 className="font-semibold text-gray-900 mb-3">Transaction history</h2>
+      <h2 className="font-semibold text-gray-500 mb-3">Transaction history</h2>
 
       {txns.length === 0 ? (
         <div className="card p-10 text-center">
@@ -73,7 +73,7 @@ export default function WalletPage() {
                   {cfg.icon}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium text-gray-900 text-sm truncate">{tx.description}</p>
+                  <p className="font-medium text-gray-500 text-sm truncate">{tx.description}</p>
                   <p className="text-gray-400 text-xs">
                     {format(new Date(tx.createdAt), 'MMM d, yyyy · h:mm a')} · {cfg.label}
                   </p>

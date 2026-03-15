@@ -102,8 +102,10 @@ export default function ForgotPasswordPage() {
               {loading ? 'Resetting…' : 'Reset password'}
             </button>
             <button type="button" onClick={() => setStep('email')}
-              className="w-full text-sm transition-colors hover:text-orange-500"
-              style={{ color: 'var(--text-faint)' }}>
+              className="w-full text-sm transition-colors"
+              style={{ color: 'var(--text-faint)' }}
+              onMouseEnter={e => e.currentTarget.style.color = 'var(--brand)'}
+              onMouseLeave={e => e.currentTarget.style.color = 'var(--text-faint)'}>
               ← Different email
             </button>
           </form>
@@ -111,7 +113,7 @@ export default function ForgotPasswordPage() {
       </div>
 
       <p className="text-center text-sm mt-4">
-        <Link to="/login" className="text-orange-500 hover:text-orange-600">← Back to sign in</Link>
+        <Link to="/login" style={{ color: 'var(--brand)' }}>← Back to sign in</Link>
       </p>
     </AuthShell>
   )

@@ -100,7 +100,6 @@ src/
 | `CLIENT_URL` | ✅ | Frontend URL for CORS + OAuth redirect |
 | `REDIS_URL` | ❌ | Defaults to `redis://localhost:6379` |
 | `EMAIL_*` | ❌ | Nodemailer config (falls back to console log) |
-| `TWILIO_*` | ❌ | SMS OTP (falls back to console log) |
 | `GOOGLE_*` | ❌ | Google OAuth |
 | `GITHUB_*` | ❌ | GitHub OAuth |
 

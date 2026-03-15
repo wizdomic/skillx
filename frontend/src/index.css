@@ -14,15 +14,15 @@
   --text-muted:    #6b7280;
   --text-faint:    #9ca3af;
 
-  --brand:         #6366f1;
-  --brand-hover:   #4f46e5;
-  --brand-bg:      #eef2ff;
-  --brand-border:  #c7d2fe;
+  --brand:         #f97316;
+  --brand-hover:   #ea580c;
+  --brand-bg:      rgba(249,115,22,0.10);
+  --brand-border:  rgba(249,115,22,0.30);
 
   /* keep --accent as alias so old CSS vars still work */
-  --accent:        #6366f1;
-  --accent-bg:     #eef2ff;
-  --accent-border: #c7d2fe;
+  --accent:        #f97316;
+  --accent-bg:     rgba(249,115,22,0.10);
+  --accent-border: rgba(249,115,22,0.30);
 
   --shadow:        0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
   --shadow-md:     0 4px 12px rgba(0,0,0,0.08);
@@ -40,14 +40,14 @@ html.dark {
   --text-muted:    #8b8fa8;
   --text-faint:    #555870;
 
-  --brand:         #818cf8;
-  --brand-hover:   #6366f1;
-  --brand-bg:      rgba(99,102,241,0.15);
-  --brand-border:  rgba(99,102,241,0.4);
+  --brand:         #fb923c;
+  --brand-hover:   #f97316;
+  --brand-bg:      rgba(249,115,22,0.15);
+  --brand-border:  rgba(249,115,22,0.35);
 
-  --accent:        #818cf8;
-  --accent-bg:     rgba(99,102,241,0.15);
-  --accent-border: rgba(99,102,241,0.4);
+  --accent:        #fb923c;
+  --accent-bg:     rgba(249,115,22,0.15);
+  --accent-border: rgba(249,115,22,0.35);
 
   --shadow:        0 1px 3px rgba(0,0,0,0.3), 0 1px 2px rgba(0,0,0,0.2);
   --shadow-md:     0 4px 16px rgba(0,0,0,0.4);
@@ -67,7 +67,7 @@ html.dark {
     transition: background 0.2s, color 0.2s;
   }
 
-  ::selection { background: #c7d2fe; color: #1e1b4b; }
+  ::selection { background: rgba(249,115,22,0.25); color: var(--text); }
   ::-webkit-scrollbar { width: 4px; height: 4px; }
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 4px; }
@@ -154,14 +154,14 @@ html.dark {
   /* ── Badges ──────────────────────────────────────────────────────────────── */
   .badge { @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold; }
 
-  /* Primary brand badge — replaces badge-orange */
+  /* Primary brand badge */
   .badge-brand {
     @apply badge;
     background: var(--brand-bg);
     color: var(--brand);
     border: 1px solid var(--brand-border);
   }
-  /* Keep badge-orange as alias so existing code doesn't break */
+  /* badge-orange kept as alias — now resolves to brand (orange) */
   .badge-orange {
     @apply badge;
     background: var(--brand-bg);

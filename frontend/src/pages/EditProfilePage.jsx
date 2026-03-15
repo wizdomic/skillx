@@ -37,7 +37,7 @@ export default function EditProfilePage() {
   return (
     <div className="p-6 max-w-lg mx-auto">
       <div className="mb-6">
-        <h1 className="text-xl font-bold text-gray-900">Edit Profile</h1>
+        <h1 className="text-xl font-bold text-gray-500">Edit Profile</h1>
         <p className="text-gray-500 text-sm mt-0.5">Update your public information</p>
       </div>
 

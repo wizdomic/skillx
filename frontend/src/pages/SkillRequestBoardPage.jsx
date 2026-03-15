@@ -60,7 +60,7 @@ export default function SkillRequestBoardPage() {
     <div className="p-6 max-w-3xl mx-auto">
       <div className="flex items-start justify-between mb-6 flex-wrap gap-3">
         <div>
-          <h1 className="text-xl font-bold text-gray-900">Skill Board</h1>
+          <h1 className="text-xl font-bold text-gray-400">Skill Board</h1>
           <p className="text-gray-500 text-sm mt-0.5">Browse skill offers and requests</p>
         </div>
         <button onClick={() => setCreateModal(true)} className="btn btn-primary btn-md">+ Post</button>
@@ -68,11 +68,11 @@ export default function SkillRequestBoardPage() {
 
       {/* Filters */}
       <div className="flex gap-2 mb-5 flex-wrap">
-        <div className="flex bg-gray-100 rounded-lg p-0.5">
+        <div className="flex bg-black rounded-lg p-0.5">
           {[{v:'',l:'All'},{v:'offer',l:'🎓 Offering'},{v:'wanted',l:'📚 Wanted'}].map(({v,l}) => (
             <button key={v} onClick={() => setFilter(f => ({ ...f, type: v }))}
               className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all
-                ${filter.type === v ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'}`}>
+                ${filter.type === v ? 'bg-gray-500 shadow-sm text-white' : 'text-white hover:text-white'}`}>
               {l}
             </button>
           ))}
@@ -87,7 +87,7 @@ export default function SkillRequestBoardPage() {
       {requests.length === 0 ? (
         <div className="card p-12 text-center">
           <div className="text-4xl mb-3">📋</div>
-          <p className="font-semibold text-gray-900 mb-1">No requests yet</p>
+          <p className="font-semibold text-gray-500 mb-1">No requests yet</p>
           <p className="text-gray-500 text-sm mb-4">Be the first to post!</p>
           <button onClick={() => setCreateModal(true)} className="btn btn-primary btn-md">Post first request</button>
         </div>
@@ -117,7 +117,7 @@ export default function SkillRequestBoardPage() {
                       )}
                     </div>
                   </div>
-                  <h3 className="font-semibold text-gray-900 text-sm mb-1">{req.title}</h3>
+                  <h3 className="font-semibold text-gray-500 text-sm mb-1">{req.title}</h3>
                   <p className="text-gray-500 text-sm line-clamp-2">{req.description}</p>
                   <p className="text-xs text-gray-400 mt-1.5 font-medium">{req.userId?.name}</p>
                 </div>
@@ -134,7 +134,7 @@ export default function SkillRequestBoardPage() {
             {[{v:'offer',l:'🎓 Offering to teach'},{v:'wanted',l:'📚 Looking to learn'}].map(({v,l}) => (
               <button key={v} onClick={() => setForm(f => ({ ...f, type: v }))}
                 className={`p-3 rounded-lg border text-sm text-left transition-all
-                  ${form.type === v ? 'border-orange-400 bg-orange-50' : 'border-gray-200 hover:border-gray-300'}`}>
+                  ${form.type === v ? 'border-orange-400 bg-black' : 'border-gray-200 hover:border-gray-300'}`}>
                 {l}
               </button>
             ))}

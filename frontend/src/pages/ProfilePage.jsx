@@ -61,19 +61,18 @@ export default function ProfilePage() {
   if (loading) return <Loader />
   if (!profile) return null
 
-  // Only show skills where we have a real name
   const teach = (profile.teachSkills || []).filter(ts => ts.skillId?.name)
   const learn = (profile.learnSkills || []).filter(ls => ls.skillId?.name)
   const minDT = new Date(Date.now() + 30 * 60000).toISOString().slice(0, 16)
 
   return (
     <div className="max-w-2xl mx-auto pb-10">
-      {/* Orange banner */}
+      {/* Banner */}
       <div className="h-28 w-full"
-        style={{ background: 'linear-gradient(135deg, #f97316 0%, #fb923c 60%, #fcd34d 100%)' }} />
+        style={{ background: 'linear-gradient(135deg, var(--brand) 0%, var(--brand-hover) 100%)' }} />
 
       <div className="px-6">
-        {/* Avatar + actions row */}
+        {/* Avatar + actions */}
         <div className="flex items-end justify-between -mt-10 mb-5">
           <div className="relative">
             <div className="w-20 h-20 rounded-2xl overflow-hidden"
@@ -122,7 +121,6 @@ export default function ProfilePage() {
             )}
           </div>
 
-          {/* Stats */}
           <div className="flex items-center gap-3 flex-wrap">
             <div className="flex items-center gap-1.5">
               <StarRating value={profile.averageRating || 0} readonly size={15} />
@@ -138,7 +136,7 @@ export default function ProfilePage() {
               <strong style={{ color: 'var(--text)' }}>{profile.totalSessions || 0}</strong> sessions
             </span>
             <div className="w-px h-4" style={{ background: 'var(--border-2)' }} />
-            <span className="text-sm font-semibold text-orange-500">
+            <span className="text-sm font-semibold" style={{ color: 'var(--brand)' }}>
               {profile.creditBalance ?? 0} credits
             </span>
           </div>
@@ -152,11 +150,12 @@ export default function ProfilePage() {
 
         {/* Skills */}
         <div className="grid grid-cols-2 gap-3 mb-5">
-          {/* Teaches */}
           <div className="rounded-xl p-4"
             style={{ background: 'var(--accent-bg)', border: '1px solid var(--accent-border)' }}>
             <div className="flex items-center justify-between mb-3">
-              <p className="text-xs font-bold uppercase tracking-wider text-orange-500">🎓 Teaches</p>
+              <p className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--brand)' }}>
+                🎓 Teaches
+              </p>
               <span className="badge-orange text-[10px]">{teach.length}</span>
             </div>
             {teach.length > 0 ? (
@@ -178,7 +177,6 @@ export default function ProfilePage() {
             )}
           </div>
 
-          {/* Wants to learn */}
           <div className="rounded-xl p-4"
             style={{ background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.2)' }}>
             <div className="flex items-center justify-between mb-3">
@@ -198,8 +196,7 @@ export default function ProfilePage() {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-0.5 rounded-lg p-0.5 mb-5"
-          style={{ background: 'var(--surface-2)' }}>
+        <div className="flex gap-0.5 rounded-lg p-0.5 mb-5" style={{ background: 'var(--surface-2)' }}>
           {[
             { id: 'about',   label: 'About' },
             { id: 'reviews', label: `Reviews (${ratings.length})` },
@@ -208,21 +205,21 @@ export default function ProfilePage() {
               className="flex-1 py-2 rounded-md text-xs font-semibold transition-all"
               style={{
                 background: activeTab === t.id ? 'var(--surface)' : 'transparent',
-                color:      activeTab === t.id ? 'var(--text)' : 'var(--text-muted)',
-                boxShadow:  activeTab === t.id ? 'var(--shadow)' : 'none',
+                color:      activeTab === t.id ? 'var(--text)'    : 'var(--text-muted)',
+                boxShadow:  activeTab === t.id ? 'var(--shadow)'  : 'none',
               }}>
               {t.label}
             </button>
           ))}
         </div>
 
-        {/* About */}
+        {/* About tab */}
         {activeTab === 'about' && (
           <div className="space-y-4 fade-up">
             <div className="grid grid-cols-3 gap-3">
               {[
-                { icon:'🎓', value: teach.length, label:'Skills teaching' },
-                { icon:'📚', value: learn.length, label:'Skills learning' },
+                { icon:'🎓', value: teach.length,              label:'Skills teaching' },
+                { icon:'📚', value: learn.length,              label:'Skills learning' },
                 { icon:'📅', value: profile.totalSessions || 0, label:'Sessions done' },
               ].map(s => (
                 <div key={s.label} className="card p-3 text-center">
@@ -244,15 +241,17 @@ export default function ProfilePage() {
             ) : isMe ? (
               <button onClick={() => nav('/profile/edit')}
                 className="w-full card p-4 text-center"
-                onMouseEnter={e => e.currentTarget.style.borderColor = '#f97316'}
+                onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--brand)'}
                 onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border)'}>
-                <p className="text-sm text-orange-500 font-medium">+ Add a bio to attract more students</p>
+                <p className="text-sm font-medium" style={{ color: 'var(--brand)' }}>
+                  + Add a bio to attract more students
+                </p>
               </button>
             ) : null}
           </div>
         )}
 
-        {/* Reviews */}
+        {/* Reviews tab */}
         {activeTab === 'reviews' && (
           <div className="space-y-3 fade-up">
             {ratings.length > 0 && (
@@ -273,13 +272,14 @@ export default function ProfilePage() {
                     return (
                       <div key={star} className="flex items-center gap-2">
                         <span className="text-xs w-3" style={{ color: 'var(--text-faint)' }}>{star}</span>
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="#f97316">
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"
+                          style={{ color: 'var(--brand)' }}>
                           <polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/>
                         </svg>
                         <div className="flex-1 h-1.5 rounded-full overflow-hidden"
                           style={{ background: 'var(--surface-2)' }}>
-                          <div className="h-full rounded-full bg-orange-400 transition-all duration-500"
-                            style={{ width: `${pct}%` }} />
+                          <div className="h-full rounded-full transition-all duration-500"
+                            style={{ width: `${pct}%`, background: 'var(--brand)' }} />
                         </div>
                         <span className="text-xs w-4 text-right" style={{ color: 'var(--text-faint)' }}>
                           {count}
@@ -306,8 +306,10 @@ export default function ProfilePage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between flex-wrap gap-1 mb-1">
                       <button onClick={() => nav(`/profile/${r.raterId?._id}`)}
-                        className="font-semibold text-sm hover:text-orange-500 transition-colors"
-                        style={{ color: 'var(--text)' }}>
+                        className="font-semibold text-sm transition-colors"
+                        style={{ color: 'var(--text)' }}
+                        onMouseEnter={e => e.currentTarget.style.color = 'var(--brand)'}
+                        onMouseLeave={e => e.currentTarget.style.color = 'var(--text)'}>
                         {r.raterId?.name}
                       </button>
                       <div className="flex items-center gap-2">
@@ -336,7 +338,7 @@ export default function ProfilePage() {
           <div>
             <label className="label">Skill to learn *</label>
             {teach.length === 0 ? (
-              <p className="text-sm text-orange-500 py-2">
+              <p className="text-sm py-2" style={{ color: 'var(--brand)' }}>
                 This user hasn't added any teach skills yet.
               </p>
             ) : (

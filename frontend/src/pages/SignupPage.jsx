@@ -85,7 +85,10 @@ export default function SignupPage() {
         </form>
         <p className="text-center text-xs mt-4" style={{ color: 'var(--text-faint)' }}>
           Didn't get it? Check spam or{' '}
-          <button onClick={() => setStep('form')} className="text-orange-500 hover:underline">try again</button>
+          <button onClick={() => setStep('form')} className="hover:underline"
+            style={{ color: 'var(--brand)' }}>
+            try again
+          </button>
         </p>
       </div>
     </AuthShell>
@@ -124,7 +127,9 @@ export default function SignupPage() {
       </div>
       <p className="text-center text-sm mt-4" style={{ color: 'var(--text-muted)' }}>
         Already have an account?{' '}
-        <Link to="/login" className="text-orange-500 font-semibold hover:text-orange-600">Sign in</Link>
+        <Link to="/login" className="font-semibold" style={{ color: 'var(--brand)' }}>
+          Sign in
+        </Link>
       </p>
     </AuthShell>
   )

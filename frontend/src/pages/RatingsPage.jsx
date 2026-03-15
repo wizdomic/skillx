@@ -35,7 +35,7 @@ export default function RatingsPage() {
   return (
     <div className="p-6 max-w-xl mx-auto">
       <div className="mb-6">
-        <h1 className="text-xl font-bold text-gray-900">Reviews for {profile.name}</h1>
+        <h1 className="text-xl font-bold text-gray-500">Reviews for {profile.name}</h1>
       </div>
 
       {/* Summary */}
@@ -44,12 +44,12 @@ export default function RatingsPage() {
           <Avatar src={profile.avatarUrl} name={profile.name} size={52} />
           <div>
             <button onClick={() => nav(`/profile/${profile._id}`)}
-              className="font-bold text-gray-900 hover:text-orange-500 transition-colors">
+              className="font-bold text-gray-500 hover:text-orange-500 transition-colors">
               {profile.name}
             </button>
             <div className="flex items-center gap-2 mt-1">
               <StarRating value={profile.averageRating} readonly size={16} />
-              <span className="font-bold text-gray-900">{Number(profile.averageRating).toFixed(1)}</span>
+              <span className="font-bold text-gray-500">{Number(profile.averageRating).toFixed(1)}</span>
               <span className="text-gray-400 text-sm">({profile.ratingCount})</span>
             </div>
           </div>
@@ -87,7 +87,7 @@ export default function RatingsPage() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between flex-wrap gap-1 mb-1">
                     <button onClick={() => nav(`/profile/${r.raterId?._id}`)}
-                      className="font-semibold text-gray-900 text-sm hover:text-orange-500 transition-colors">
+                      className="font-semibold text-gray-500 text-sm hover:text-orange-500 transition-colors">
                       {r.raterId?.name}
                     </button>
                     <div className="flex items-center gap-2">

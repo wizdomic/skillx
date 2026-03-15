@@ -21,7 +21,7 @@ export default function DashboardPage() {
   const [loading, setLoading]           = useState(true)
   const [loadingMore, setLoadingMore]   = useState(false)
   const [sessionModal, setSessionModal] = useState(null)
-  const [modalSkills, setModalSkills]   = useState([]) // teach skills for book modal
+  const [modalSkills, setModalSkills]   = useState([])
   const [loadingSkills, setLoadingSkills] = useState(false)
   const [form, setForm]                 = useState({ skillId:'', scheduledAt:'', notes:'' })
   const [booking, setBooking]           = useState(false)
@@ -42,19 +42,11 @@ export default function DashboardPage() {
 
   useEffect(() => { loadMatches(1) }, [loadMatches])
 
-  // Open book modal — always fetch fresh profile to guarantee skills are loaded
   const openBookModal = async (match) => {
     setSessionModal(match)
     setForm({ skillId: '', scheduledAt: '', notes: '' })
-
-    // Use skills from match if already populated with names
     const fromMatch = (match.teachSkills || []).filter(ts => ts?.skillId?.name)
-    if (fromMatch.length > 0) {
-      setModalSkills(fromMatch)
-      return
-    }
-
-    // Fallback: fetch fresh profile
+    if (fromMatch.length > 0) { setModalSkills(fromMatch); return }
     setLoadingSkills(true)
     try {
       const { data } = await userApi.getUser(match.user._id)
@@ -63,9 +55,7 @@ export default function DashboardPage() {
     } catch {
       setModalSkills([])
       toast.error('Could not load skills')
-    } finally {
-      setLoadingSkills(false)
-    }
+    } finally { setLoadingSkills(false) }
   }
 
   const handleBook = async () => {
@@ -100,7 +90,7 @@ export default function DashboardPage() {
         <div key={p.sessionId}
           className="mb-4 p-3 rounded-xl flex items-center justify-between gap-3 flex-wrap"
           style={{ background: 'var(--accent-bg)', border: '1px solid var(--accent-border)' }}>
-          <p className="text-sm font-medium text-orange-600">
+          <p className="text-sm font-medium" style={{ color: 'var(--brand)' }}>
             ⭐ Session completed — leave a rating to help the community.
           </p>
           <div className="flex gap-2">
@@ -209,12 +199,11 @@ export default function DashboardPage() {
         title="Request a session">
         {sessionModal && (
           <div className="space-y-3">
-            {/* User preview */}
             <button
               onClick={() => { setSessionModal(null); setModalSkills([]); nav(`/profile/${sessionModal.user._id}`) }}
               className="w-full flex items-center gap-3 p-3 rounded-lg transition-all text-left"
               style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}
-              onMouseEnter={e => e.currentTarget.style.borderColor = '#f97316'}
+              onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--brand)'}
               onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border)'}>
               <Avatar src={sessionModal.user.avatarUrl} name={sessionModal.user.name} size={40} />
               <div className="flex-1 min-w-0">
@@ -226,13 +215,12 @@ export default function DashboardPage() {
               <span className="text-xs" style={{ color: 'var(--text-faint)' }}>View profile →</span>
             </button>
 
-            {/* Skill selector */}
             <div>
               <label className="label">Skill to learn *</label>
               {loadingSkills ? (
                 <div className="flex items-center gap-2 py-2">
-                  <div className="w-4 h-4 rounded-full border-2 border-t-orange-500 animate-spin"
-                    style={{ borderColor: 'var(--border)', borderTopColor: '#f97316' }} />
+                  <div className="w-4 h-4 rounded-full border-2 animate-spin"
+                    style={{ borderColor: 'var(--border)', borderTopColor: 'var(--brand)' }} />
                   <span className="text-sm" style={{ color: 'var(--text-muted)' }}>Loading skills…</span>
                 </div>
               ) : modalSkills.length === 0 ? (
@@ -241,9 +229,7 @@ export default function DashboardPage() {
                   ⚠️ This user hasn't added any teach skills yet.
                 </div>
               ) : (
-                <select
-                  className="input"
-                  value={form.skillId}
+                <select className="input" value={form.skillId}
                   onChange={e => setForm(f => ({ ...f, skillId: e.target.value }))}>
                   <option value="">Select a skill…</option>
                   {modalSkills.map(ts => (
@@ -255,13 +241,9 @@ export default function DashboardPage() {
               )}
             </div>
 
-            {/* Date/time */}
             <div>
               <label className="label">Date & time *</label>
-              <input
-                className="input"
-                type="datetime-local"
-                min={minDT}
+              <input className="input" type="datetime-local" min={minDT}
                 value={form.scheduledAt}
                 onChange={e => setForm(f => ({ ...f, scheduledAt: e.target.value }))} />
               <p className="text-xs mt-1" style={{ color: 'var(--text-faint)' }}>
@@ -269,25 +251,20 @@ export default function DashboardPage() {
               </p>
             </div>
 
-            {/* Notes */}
             <div>
               <label className="label">Notes (optional)</label>
-              <textarea
-                className="input resize-none" rows={3}
+              <textarea className="input resize-none" rows={3}
                 placeholder="Your experience level, goals, questions…"
                 value={form.notes}
                 onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
             </div>
 
             <div className="flex gap-2">
-              <button
-                className="btn btn-white btn-md flex-1"
+              <button className="btn btn-white btn-md flex-1"
                 onClick={() => { setSessionModal(null); setModalSkills([]) }}>
                 Cancel
               </button>
-              <button
-                className="btn btn-primary btn-md flex-1"
-                onClick={handleBook}
+              <button className="btn btn-primary btn-md flex-1" onClick={handleBook}
                 disabled={booking || loadingSkills || !modalSkills.length}>
                 {booking ? 'Sending…' : 'Send request'}
               </button>
@@ -299,7 +276,7 @@ export default function DashboardPage() {
   )
 }
 
-// ── Match Card ─────────────────────────────────────────────────────────────────
+// ── Match Card ────────────────────────────────────────────────────────────────
 function MatchCard({ match, index, onProfile, onMessage, onBook }) {
   const { user, teachSkills = [], learnSkills = [], sharedSkillCount } = match
   const delay = Math.min(index, 4) + 1
@@ -320,7 +297,6 @@ function MatchCard({ match, index, onProfile, onMessage, onBook }) {
         e.currentTarget.style.boxShadow   = 'var(--shadow)'
       }}>
 
-      {/* Avatar + match badge */}
       <div className="flex items-start justify-between mb-3">
         <Avatar src={user.avatarUrl} name={user.name} size={48} />
         <span className="badge-orange text-xs">
@@ -328,13 +304,11 @@ function MatchCard({ match, index, onProfile, onMessage, onBook }) {
         </span>
       </div>
 
-      {/* Name + location */}
       <p className="font-bold text-base mb-0.5" style={{ color: 'var(--text)' }}>{user.name}</p>
       {user.location && (
         <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>📍 {user.location}</p>
       )}
 
-      {/* Rating */}
       <div className="flex items-center gap-1.5 mb-4">
         <StarRating value={user.averageRating || 0} readonly size={13} />
         <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
@@ -344,7 +318,6 @@ function MatchCard({ match, index, onProfile, onMessage, onBook }) {
         </span>
       </div>
 
-      {/* Teaches */}
       {teachSkills.length > 0 && (
         <div className="mb-3">
           <p className="text-[10px] font-bold uppercase tracking-wider mb-1.5"
@@ -364,7 +337,6 @@ function MatchCard({ match, index, onProfile, onMessage, onBook }) {
         </div>
       )}
 
-      {/* Wants to learn */}
       {learnSkills.length > 0 && (
         <div className="mb-4">
           <p className="text-[10px] font-bold uppercase tracking-wider mb-1.5"
@@ -384,19 +356,16 @@ function MatchCard({ match, index, onProfile, onMessage, onBook }) {
         </div>
       )}
 
-      {/* No skills yet */}
       {teachSkills.length === 0 && learnSkills.length === 0 && (
         <p className="text-xs mb-4 italic" style={{ color: 'var(--text-faint)' }}>No skills added yet</p>
       )}
 
-      {/* Bio */}
       {user.bio && (
         <p className="text-xs mb-4 line-clamp-2 italic" style={{ color: 'var(--text-muted)' }}>
           "{user.bio}"
         </p>
       )}
 
-      {/* Actions */}
       <div className="flex gap-2 mt-auto">
         <button onClick={onMessage}
           className="flex-1 py-2 rounded-lg text-xs font-semibold transition-all"
@@ -406,7 +375,10 @@ function MatchCard({ match, index, onProfile, onMessage, onBook }) {
           💬 Message
         </button>
         <button onClick={onBook}
-          className="flex-1 py-2 rounded-lg text-xs font-semibold transition-all bg-orange-500 text-white hover:bg-orange-600 active:scale-95">
+          className="flex-1 py-2 rounded-lg text-xs font-semibold transition-all active:scale-95"
+          style={{ background: 'var(--brand)', color: '#fff' }}
+          onMouseEnter={e => e.currentTarget.style.background = 'var(--brand-hover)'}
+          onMouseLeave={e => e.currentTarget.style.background = 'var(--brand)'}>
           📅 Book
         </button>
       </div>

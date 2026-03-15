@@ -60,7 +60,8 @@ export default function LoginPage() {
           <div>
             <div className="flex justify-between mb-1.5">
               <label className="label mb-0">Password</label>
-              <Link to="/forgot-password" className="text-xs text-orange-500 hover:text-orange-600 font-medium">
+              <Link to="/forgot-password" className="text-xs font-medium"
+                style={{ color: 'var(--brand)' }}>
                 Forgot?
               </Link>
             </div>
@@ -77,7 +78,9 @@ export default function LoginPage() {
 
       <p className="text-center text-sm mt-4" style={{ color: 'var(--text-muted)' }}>
         No account?{' '}
-        <Link to="/signup" className="text-orange-500 font-semibold hover:text-orange-600">Sign up free</Link>
+        <Link to="/signup" className="font-semibold" style={{ color: 'var(--brand)' }}>
+          Sign up free
+        </Link>
       </p>
     </AuthShell>
   )

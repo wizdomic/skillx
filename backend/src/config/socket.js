@@ -56,6 +56,12 @@ const initSocket = (httpServer) => {
       io.to(`user:${receiverId}`).emit('chat:typing', { senderId: socket.userId });
     });
 
+    // Inside the socket.on('connection') block, add:
+    socket.on('chat:delete_message', ({ receiverId, messageId }) => {
+      if (!receiverId || !messageId) return
+      io.to(`user:${receiverId}`).emit('chat:message_deleted', { messageId })
+    })
+
     socket.on('disconnect', () => {
       console.log(`🔌  Socket disconnected: ${socket.userId}`);
     });

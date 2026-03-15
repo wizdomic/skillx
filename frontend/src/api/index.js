@@ -1,61 +1,57 @@
 import api from '../utils/axiosInstance'
 
-// ── Users ─────────────────────────────────────────────────────────────────────
 export const userApi = {
-  getMe: () => api.get('/users/me'),
-  getUser: (userId) => api.get(`/users/${userId}`),
-  updateProfile: (data) => api.patch('/users/me', data),
-  completeOnboarding: (data) => api.post('/users/me/onboarding', data),
-  addSkill: (data) => api.post('/users/me/skills', data),
-  removeSkill: (userSkillId) => api.delete(`/users/me/skills/${userSkillId}`),
+  getMe:              ()         => api.get('/users/me'),
+  getUser:            (userId)   => api.get(`/users/${userId}`),
+  updateProfile:      (data)     => api.patch('/users/me', data),
+  completeOnboarding: (data)     => api.post('/users/me/onboarding', data),
+  addSkill:           (data)     => api.post('/users/me/skills', data),
+  removeSkill:        (id)       => api.delete(`/users/me/skills/${id}`),
 }
 
-// ── Skills ────────────────────────────────────────────────────────────────────
 export const skillApi = {
-  list: (params) => api.get('/skills', { params }),
-  getById: (skillId) => api.get(`/skills/${skillId}`),
-  getCategories: () => api.get('/skills/categories'),
-  create: (data) => api.post('/skills', data),
+  list:          (params) => api.get('/skills', { params }),
+  getById:       (id)     => api.get(`/skills/${id}`),
+  getCategories: ()       => api.get('/skills/categories'),
+  create:        (data)   => api.post('/skills', data),
 }
 
-// ── Sessions ──────────────────────────────────────────────────────────────────
 export const sessionApi = {
-  create: (data) => api.post('/sessions', data),
-  list: (params) => api.get('/sessions', { params }),
-  getById: (sessionId) => api.get(`/sessions/${sessionId}`),
-  accept: (sessionId) => api.put(`/sessions/${sessionId}/accept`),
-  cancel: (sessionId, reason) => api.put(`/sessions/${sessionId}/cancel`, { reason }),
-  confirm: (sessionId) => api.put(`/sessions/${sessionId}/confirm`),
+  create:         (data)       => api.post('/sessions', data),
+  list:           (params)     => api.get('/sessions', { params }),
+  getById:        (id)         => api.get(`/sessions/${id}`),
+  accept:         (id)         => api.put(`/sessions/${id}/accept`),
+  setMeetingLink: (id, body)   => api.patch(`/sessions/${id}/meeting-link`, body),
+  cancel:         (id, reason) => api.put(`/sessions/${id}/cancel`, { reason }),
+  confirm:        (id)         => api.put(`/sessions/${id}/confirm`),
+  delete:         (id)         => api.delete(`/sessions/${id}`),
 }
 
-// ── Credits ───────────────────────────────────────────────────────────────────
 export const creditApi = {
   getWallet: (params) => api.get('/credits/wallet', { params }),
 }
 
-// ── Ratings ───────────────────────────────────────────────────────────────────
 export const ratingApi = {
-  submit: (data) => api.post('/ratings', data),
+  submit:         (data)           => api.post('/ratings', data),
   getUserRatings: (userId, params) => api.get(`/ratings/${userId}`, { params }),
 }
 
-// ── Skill Requests ────────────────────────────────────────────────────────────
 export const requestApi = {
-  list: (params) => api.get('/requests', { params }),
-  create: (data) => api.post('/requests', data),
-  update: (requestId, data) => api.patch(`/requests/${requestId}`, data),
-  delete: (requestId) => api.delete(`/requests/${requestId}`),
+  list:   (params)     => api.get('/requests', { params }),
+  create: (data)       => api.post('/requests', data),
+  update: (id, data)   => api.patch(`/requests/${id}`, data),
+  delete: (id)         => api.delete(`/requests/${id}`),
 }
 
-// ── Recommendations ───────────────────────────────────────────────────────────
 export const recommendationApi = {
   get: (params) => api.get('/recommendations', { params }),
 }
 
-// ── Chat ──────────────────────────────────────────────────────────────────────
 export const chatApi = {
-  send: (data) => api.post('/chat', data),
-  getConversation: (userId, params) => api.get(`/chat/${userId}`, { params }),
-  getConversationList: () => api.get('/chat/conversations'),
-  getUnreadCount: () => api.get('/chat/unread'),
+  send:                 (data)           => api.post('/chat', data),
+  deleteMessage:        (messageId)      => api.delete(`/chat/message/${messageId}`),
+  deleteConversation:   (userId)         => api.delete(`/chat/conversation/${userId}`),
+  getConversation:      (userId, params) => api.get(`/chat/${userId}`, { params }),
+  getConversationList:  ()               => api.get('/chat/conversations'),
+  getUnreadCount:       ()               => api.get('/chat/unread'),
 }

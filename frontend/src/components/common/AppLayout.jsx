@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../../store/authStore'
 import { useNotificationStore } from '../../store/notificationStore'
@@ -6,6 +6,7 @@ import { useThemeStore } from '../../store/themeStore'
 import { sessionApi, chatApi } from '../../api/index'
 import { Avatar } from './index'
 import toast from 'react-hot-toast'
+import { formatDistanceToNow } from 'date-fns'
 
 function IC({ d, size = 18 }) {
   return (
@@ -33,24 +34,14 @@ export function IconCoin(p)     { return <IC size={p.size} d="M12 2a10 10 0 100 
 export function IconMenu(p)     { return <IC size={p.size} d="M3 12h18M3 6h18M3 18h18" /> }
 export function IconLogout(p)   { return <IC size={p.size} d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9" /> }
 export function IconFilter(p)   { return <IC size={p.size} d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z" /> }
+export function IconBell(p)     { return <IC size={p.size} d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0" /> }
 export function IconExternalLink(p) { return <IC size={p.size} d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3" /> }
 
 function IconSun({ size = 16 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
-      stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="5"/>
-      <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
-    </svg>
-  )
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
 }
 function IconMoon({ size = 16 }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none"
-      stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>
-    </svg>
-  )
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
 }
 
 const NAV = [
@@ -62,12 +53,82 @@ const NAV = [
   { to: '/skills',    label: 'Skills',    Icon: IconStar },
 ]
 
+// ── Notification Panel ────────────────────────────────────────────────────────
+function NotificationPanel({ onClose }) {
+  const { notifications, markAllRead, deleteNotification, clearAllNotifications } = useNotificationStore()
+  const navigate = useNavigate()
+
+  useEffect(() => { markAllRead() }, [])
+
+  const handleClick = (notif) => {
+    if (notif.sessionId) { navigate('/sessions'); onClose() }
+  }
+
+  return (
+    <div className="absolute right-0 top-10 z-50 w-80 rounded-xl shadow-2xl overflow-hidden"
+      style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+      <div className="flex items-center justify-between px-4 py-3"
+        style={{ borderBottom: '1px solid var(--border)' }}>
+        <h3 className="font-semibold text-sm" style={{ color: 'var(--text)' }}>Notifications</h3>
+        {notifications.length > 0 && (
+          <button onClick={clearAllNotifications}
+            className="text-xs hover:opacity-70 transition-opacity"
+            style={{ color: 'var(--text-faint)' }}>
+            Clear all
+          </button>
+        )}
+      </div>
+
+      <div className="max-h-80 overflow-y-auto">
+        {notifications.length === 0 ? (
+          <div className="p-8 text-center">
+            <div className="text-3xl mb-2">🔔</div>
+            <p className="text-sm" style={{ color: 'var(--text-faint)' }}>No notifications yet</p>
+          </div>
+        ) : (
+          notifications.map(n => (
+            <div key={n.id}
+              className="flex items-start gap-3 px-4 py-3 transition-colors cursor-pointer"
+              style={{ borderBottom: '1px solid var(--border)', background: n.read ? 'transparent' : 'var(--brand-bg)' }}
+              onMouseEnter={e => e.currentTarget.style.background = 'var(--surface-2)'}
+              onMouseLeave={e => e.currentTarget.style.background = n.read ? 'transparent' : 'var(--brand-bg)'}
+              onClick={() => handleClick(n)}>
+              <div className="flex-1 min-w-0" >
+                <p className="text-xs font-semibold mb-0.5" style={{ color: 'var(--text)' }}>{n.title}</p>
+                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{n.body}</p>
+                <p className="text-[10px] mt-1" style={{ color: 'var(--text-faint)' }}>
+                  {formatDistanceToNow(new Date(n.createdAt), { addSuffix: true })}
+                </p>
+              </div>
+              <button
+                onClick={e => { e.stopPropagation(); deleteNotification(n.id) }}
+                className="flex-shrink-0 w-5 h-5 rounded flex items-center justify-center transition-colors hover:opacity-100 opacity-40"
+                style={{ color: 'var(--text-muted)' }}
+                title="Delete">
+                <IconX size={12} />
+              </button>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function AppLayout() {
   const { user, logout } = useAuthStore()
-  const { unreadMessages, pendingSessions, setUnreadMessages, setPendingSessions } = useNotificationStore()
+  const {
+    unreadMessages, pendingSessions,
+    setUnreadMessages, setPendingSessions,
+    notifications,
+  } = useNotificationStore()
   const { dark, toggle } = useThemeStore()
-  const navigate = useNavigate()
-  const [open, setOpen] = useState(false)
+  const navigate   = useNavigate()
+  const [open, setOpen]         = useState(false)
+  const [showNotifs, setShowNotifs] = useState(false)
+  const notifRef = useRef(null)
+
+  const unreadNotifs = notifications.filter(n => !n.read).length
 
   useEffect(() => {
     chatApi.getUnreadCount()
@@ -81,6 +142,16 @@ export default function AppLayout() {
       })
       .catch(() => {})
   }, [user?._id])
+
+  // Close notification panel on outside click
+  useEffect(() => {
+    if (!showNotifs) return
+    const handler = e => {
+      if (notifRef.current && !notifRef.current.contains(e.target)) setShowNotifs(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [showNotifs])
 
   const handleLogout = async () => {
     await logout()
@@ -98,7 +169,7 @@ export default function AppLayout() {
   const hoverOff = e => { e.currentTarget.style.background = ''; e.currentTarget.style.color = 'var(--text-muted)' }
 
   return (
-    <div className="flex h-screen overflow-hidden" style={{ background: 'var(--bg)' }}>
+    <div className="flex overflow-hidden" style={{ height: '100dvh', background: 'var(--bg)' }}>
       {/* Sidebar */}
       <aside
         className={`fixed inset-y-0 left-0 z-40 w-56 flex flex-col transition-transform duration-200
@@ -122,15 +193,14 @@ export default function AppLayout() {
             return (
               <NavLink key={to} to={to} onClick={() => setOpen(false)}
                 className={({ isActive }) =>
-                  `flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors
-                  ${isActive ? '' : ''}`
+                  `flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${isActive ? '' : ''}`
                 }
                 style={({ isActive }) => isActive
                   ? { background: 'var(--brand-bg)', color: 'var(--brand)', border: '1px solid var(--brand-border)' }
                   : { color: 'var(--text-muted)' }
                 }
-                onMouseEnter={e => { if (!e.currentTarget.style.color.includes('var(--brand)')) hoverOn(e) }}
-                onMouseLeave={e => { if (!e.currentTarget.style.color.includes('var(--brand)')) hoverOff(e) }}>
+                onMouseEnter={e => { if (!e.currentTarget.style.color.includes('brand')) hoverOn(e) }}
+                onMouseLeave={e => { if (!e.currentTarget.style.color.includes('brand')) hoverOff(e) }}>
                 <Icon size={16} />
                 <span className="flex-1">{label}</span>
                 {count > 0 && (
@@ -158,8 +228,7 @@ export default function AppLayout() {
             <span className="flex-1">{dark ? 'Light mode' : 'Dark mode'}</span>
             <div className="w-8 h-4 rounded-full flex items-center px-0.5 transition-colors duration-200"
               style={{ background: dark ? 'var(--brand)' : 'var(--border-2)' }}>
-              <div className={`w-3 h-3 rounded-full bg-white shadow transition-transform duration-200
-                ${dark ? 'translate-x-4' : 'translate-x-0'}`} />
+              <div className={`w-3 h-3 rounded-full bg-white shadow transition-transform duration-200 ${dark ? 'translate-x-4' : 'translate-x-0'}`} />
             </div>
           </button>
 
@@ -194,6 +263,7 @@ export default function AppLayout() {
 
       {/* Main */}
       <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+        {/* Mobile header */}
         <header className="lg:hidden flex items-center gap-3 px-4 h-14 flex-shrink-0"
           style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)' }}>
           <button onClick={() => setOpen(true)} className="hover:opacity-70 transition-opacity"
@@ -202,10 +272,32 @@ export default function AppLayout() {
           </button>
           <span className="font-bold" style={{ color: 'var(--text)' }}>SkillX</span>
           <div className="ml-auto flex items-center gap-2">
+            {/* Theme toggle mobile */}
             <button onClick={toggle} className="p-1.5 rounded-lg transition-all"
               style={{ color: 'var(--text-muted)', background: 'var(--surface-2)' }}>
               {dark ? <IconSun size={15} /> : <IconMoon size={15} />}
             </button>
+
+            {/* Notification bell mobile */}
+            <div className="relative" ref={notifRef}>
+              <button onClick={() => setShowNotifs(v => !v)}
+                className="relative p-1.5 rounded-lg transition-all"
+                style={{ color: 'var(--text-muted)', background: 'var(--surface-2)' }}>
+                <IconBell size={16} />
+                {unreadNotifs > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full text-[9px] font-bold text-white flex items-center justify-center"
+                    style={{ background: 'var(--brand)' }}>
+                    {unreadNotifs > 9 ? '9+' : unreadNotifs}
+                  </span>
+                )}
+              </button>
+              {showNotifs && (
+                <div className="absolute right-0 top-10 z-50">
+                  <NotificationPanel onClose={() => setShowNotifs(false)} />
+                </div>
+              )}
+            </div>
+
             {unreadMessages > 0 && (
               <button onClick={() => navigate('/chat')}
                 className="w-6 h-6 rounded-full text-white text-xs font-bold flex items-center justify-center"
@@ -215,6 +307,30 @@ export default function AppLayout() {
             )}
           </div>
         </header>
+
+        {/* Desktop header — notification bell only */}
+        <header className="hidden lg:flex items-center justify-end px-6 h-12 flex-shrink-0"
+          style={{ borderBottom: '1px solid var(--border)', background: 'var(--surface)' }}>
+          <div className="relative" ref={notifRef}>
+            <button onClick={() => setShowNotifs(v => !v)}
+              className="relative p-2 rounded-lg transition-all flex items-center gap-2"
+              style={{ color: 'var(--text-muted)' }}
+              onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-2)' }}
+              onMouseLeave={e => { e.currentTarget.style.background = '' }}>
+              <IconBell size={17} />
+              {unreadNotifs > 0 && (
+                <span className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full text-[9px] font-bold text-white flex items-center justify-center"
+                  style={{ background: 'var(--brand)' }}>
+                  {unreadNotifs > 9 ? '9+' : unreadNotifs}
+                </span>
+              )}
+            </button>
+            {showNotifs && (
+              <NotificationPanel onClose={() => setShowNotifs(false)} />
+            )}
+          </div>
+        </header>
+
         <main className="flex-1 overflow-y-auto">
           <Outlet />
         </main>

@@ -15,22 +15,32 @@ const sessionSchema = new mongoose.Schema(
 
     scheduledAt:  { type: Date, required: true },
     durationMins: { type: Number, default: 60, min: 15, max: 240 },
-    videoLink:    { type: String, default: null },
     notes:        { type: String, maxlength: 500, default: '' },
 
+    // ── Meeting link ───────────────────────────────────────────────────────
+    // Platform is chosen by teacher when accepting.
+    // 'jitsi'  → auto-generated free link (no account needed)
+    // 'zoom'   → teacher pastes their Zoom link
+    // 'gmeet'  → teacher pastes their Google Meet link
+    // 'teams'  → teacher pastes their Teams link
+    // 'custom' → teacher pastes any URL
+    meetingPlatform: {
+      type: String,
+      enum: ['jitsi', 'zoom', 'gmeet', 'teams', 'custom'],
+      default: 'jitsi',
+    },
+    videoLink: { type: String, default: null },
+
+    // ── Credits ────────────────────────────────────────────────────────────
     creditsAmount:   { type: Number, default: 1, min: 1 },
     creditsEligible: { type: Boolean, default: true },
+    creditsHeld:     { type: Boolean, default: false },
 
-    // ── Credit hold tracking ───────────────────────────────────────────────
-    // true  = learner's credit has been deducted and is waiting
-    // false = not yet held (or already settled/refunded)
-    creditsHeld: { type: Boolean, default: false },
-
-    // ── Confirmation flags ─────────────────────────────────────────────────
+    // ── Confirmation ───────────────────────────────────────────────────────
     teacherConfirmed: { type: Boolean, default: false },
     learnerConfirmed: { type: Boolean, default: false },
 
-    // ── Cancellation info ──────────────────────────────────────────────────
+    // ── Cancellation ───────────────────────────────────────────────────────
     cancelledBy:  { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
     cancelReason: { type: String, default: '' },
 
@@ -48,7 +58,6 @@ sessionSchema.statics.countPairSessionsThisWeek = async function (userAId, userB
   const startOfWeek = new Date()
   startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay())
   startOfWeek.setHours(0, 0, 0, 0)
-
   return this.countDocuments({
     $or: [
       { teacherId: userAId, learnerId: userBId },

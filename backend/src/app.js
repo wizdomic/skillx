@@ -12,38 +12,43 @@ const { errorHandler }         = require('./middleware/errorHandler')
 require('./config/passport')
 
 // ── Route imports ─────────────────────────────────────────────────────────────
-const authRoutes             = require('./modules/auth/auth.routes')
-const userRoutes             = require('./modules/users/user.routes')
-const skillRoutes            = require('./modules/skills/skill.routes')
-const sessionRoutes          = require('./modules/sessions/session.routes')
-const creditController       = require('./modules/credits/credit.controller')
-const ratingController       = require('./modules/ratings/rating.controller')
-const requestController      = require('./modules/requests/request.controller')
+const authRoutes               = require('./modules/auth/auth.routes')
+const userRoutes               = require('./modules/users/user.routes')
+const skillRoutes              = require('./modules/skills/skill.routes')
+const sessionRoutes            = require('./modules/sessions/session.routes')
+const creditController         = require('./modules/credits/credit.controller')
+const ratingController         = require('./modules/ratings/rating.controller')
+const requestController        = require('./modules/requests/request.controller')
 const recommendationController = require('./modules/recommendations/recommendation.controller')
-const chatController         = require('./modules/chat/chat.controller')
+const chatController           = require('./modules/chat/chat.controller')
 
 const app = express()
 
 // ── Security headers ──────────────────────────────────────────────────────────
 app.use(helmet({
-  // Allow fonts/images from Google Fonts in development
-  contentSecurityPolicy: NODE_ENV === 'production' ? undefined : false,
-  // Allow cross-origin requests in dev
+  contentSecurityPolicy:     NODE_ENV === 'production' ? undefined : false,
   crossOriginEmbedderPolicy: NODE_ENV === 'production',
 }))
-
-// Prevent browser from sniffing MIME types
 app.use(helmet.noSniff())
-// Disable X-Powered-By header
 app.use(helmet.hidePoweredBy())
-// Force HTTPS in production
 if (NODE_ENV === 'production') {
   app.use(helmet.hsts({ maxAge: 31536000, includeSubDomains: true }))
 }
 
 // ── CORS ──────────────────────────────────────────────────────────────────────
+// CLIENT_URL may be a comma-separated list of allowed origins, e.g.:
+//   CLIENT_URL=https://skillx.vercel.app,https://www.skillx.app
+const allowedOrigins = CLIENT_URL
+  ? CLIENT_URL.split(',').map(u => u.trim()).filter(Boolean)
+  : []
+
 app.use(cors({
-  origin: CLIENT_URL,
+  origin: (origin, callback) => {
+    // Allow requests with no origin (server-to-server, curl, Postman)
+    if (!origin) return callback(null, true)
+    if (allowedOrigins.includes(origin)) return callback(null, true)
+    callback(new Error(`CORS: origin ${origin} not allowed`))
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
