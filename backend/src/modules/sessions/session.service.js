@@ -14,6 +14,7 @@ const generateVideoLink = (sessionId) =>
   `https://meet.jit.si/skill-exchange-${sessionId}`
 
 // ── Create ────────────────────────────────────────────────────────────────────
+// Holds 1 credit from learner immediately on booking.
 const createSession = async (learnerId, { teacherId, skillId, scheduledAt, durationMins = 60, notes = '' }) => {
   if (learnerId.toString() === teacherId.toString())
     throw new AppError('You cannot book a session with yourself.', 400)
@@ -25,7 +26,9 @@ const createSession = async (learnerId, { teacherId, skillId, scheduledAt, durat
   ])
 
   if (!teacher || !teacher.isActive) throw new AppError('Teacher not found.', 404)
-  if (!skill)   throw new AppError('Skill not found.', 404)
+  if (!skill)                        throw new AppError('Skill not found.', 404)
+
+  // Check balance BEFORE creating session — fail early with clear message
   if (learner.creditBalance < 1)
     throw new AppError('Insufficient credits. You need at least 1 credit to book a session.', 402)
 
@@ -33,33 +36,53 @@ const createSession = async (learnerId, { teacherId, skillId, scheduledAt, durat
   if (scheduledDate <= new Date())
     throw new AppError('Session must be scheduled in the future.', 400)
 
+  // Check scheduling conflict
   const conflictStart = new Date(scheduledDate.getTime() - 60 * 60 * 1000)
   const conflictEnd   = new Date(scheduledDate.getTime() + durationMins * 60 * 1000)
-
   const conflict = await Session.findOne({
     $or: [{ teacherId }, { learnerId }],
     scheduledAt: { $gte: conflictStart, $lte: conflictEnd },
     status: { $in: ['pending', 'accepted'] },
   })
-
   if (conflict) throw new AppError('A session is already scheduled during this time window.', 409)
 
+  // Create the session record first
   const session = await Session.create({
     teacherId, learnerId, skillId,
-    scheduledAt: scheduledDate, durationMins, notes, creditsAmount: 1,
+    scheduledAt: scheduledDate,
+    durationMins, notes,
+    creditsAmount: 1,
+    creditsHeld: false,
   })
 
+  // Hold 1 credit from learner — deducted immediately
+  try {
+    await creditService.holdCredits({
+      learnerId,
+      amount: 1,
+      sessionId: session._id,
+    })
+    session.creditsHeld = true
+    await session.save()
+  } catch (holdErr) {
+    // If hold fails, delete the session so it's not orphaned
+    await Session.findByIdAndDelete(session._id)
+    throw holdErr
+  }
+
+  // Notify teacher
   try {
     getIO().to(`user:${teacherId}`).emit('session:new_request', {
-      sessionId: session._id,
+      sessionId:   session._id,
       learnerName: learner.name,
-      skillName: skill.name,
+      skillName:   skill.name,
       scheduledAt: session.scheduledAt,
     })
   } catch (_) {}
 
   if (teacher.email && teacher.isEmailVerified) {
-    emailService.sendSessionRequestEmail(teacher.email, learner.name, skill.name, session.scheduledAt).catch(console.error)
+    emailService.sendSessionRequestEmail(teacher.email, learner.name, skill.name, session.scheduledAt)
+      .catch(console.error)
   }
 
   return session.populate(['teacherId', 'learnerId', 'skillId'])
@@ -89,6 +112,7 @@ const acceptSession = async (teacherId, sessionId) => {
 }
 
 // ── Cancel ────────────────────────────────────────────────────────────────────
+// Always refunds the held credit back to the learner.
 const cancelSession = async (userId, sessionId, reason = '') => {
   const session = await Session.findById(sessionId)
   if (!session) throw new AppError('Session not found.', 404)
@@ -101,23 +125,53 @@ const cancelSession = async (userId, sessionId, reason = '') => {
   if (!['pending', 'accepted'].includes(session.status))
     throw new AppError(`Cannot cancel a session with status: ${session.status}.`, 400)
 
+  const cancelledByTeacher = session.teacherId.toString() === userId.toString()
+
   session.status       = 'cancelled'
   session.cancelledBy  = userId
   session.cancelReason = reason
   await session.save()
 
-  const otherId = session.teacherId.toString() === userId.toString()
-    ? session.learnerId : session.teacherId
+  // Refund held credit to learner
+  if (session.creditsHeld) {
+    const refundReason = cancelledByTeacher
+      ? `Refund — teacher cancelled the session`
+      : `Refund — you cancelled the session`
 
-  try { getIO().to(`user:${otherId}`).emit('session:cancelled', { sessionId: session._id, reason }) } catch (_) {}
+    try {
+      await creditService.refundHeldCredits({
+        learnerId: session.learnerId,
+        amount:    session.creditsAmount,
+        sessionId: session._id,
+        reason:    refundReason,
+      })
+      session.creditsHeld = false
+      await session.save()
+    } catch (err) {
+      // Log but don't fail the cancellation — admin can fix manually
+      console.error(`[Credit] Failed to refund session ${session._id}:`, err.message)
+    }
+  }
+
+  // Notify the other participant
+  const otherId = session.teacherId.toString() === userId.toString()
+    ? session.learnerId
+    : session.teacherId
+
+  try {
+    getIO().to(`user:${otherId}`).emit('session:cancelled', {
+      sessionId: session._id,
+      reason,
+      refunded: session.creditsHeld === false,
+    })
+  } catch (_) {}
 
   return session
 }
 
 // ── Confirm (complete) ────────────────────────────────────────────────────────
-// Logic:
-//   • If session time has already passed → one confirmation is enough to complete
-//   • If session time is in the future   → both confirmations needed
+// Credits were already held from learner at booking.
+// On completion, just settle them to the teacher.
 const confirmSession = async (userId, sessionId) => {
   const session = await Session.findById(sessionId)
   if (!session) throw new AppError('Session not found.', 404)
@@ -137,24 +191,37 @@ const confirmSession = async (userId, sessionId) => {
   if (isTeacher) session.teacherConfirmed = true
   if (isLearner) session.learnerConfirmed = true
 
-  // Complete if: both confirmed, OR the session time has passed (one confirm is enough)
+  // Complete if both confirmed OR session time has already passed
   const sessionEnded = new Date() > new Date(session.scheduledAt.getTime() + session.durationMins * 60 * 1000)
   const shouldComplete = (session.teacherConfirmed && session.learnerConfirmed) || sessionEnded
 
-  if (shouldComplete && session.status !== 'completed') {
+  if (shouldComplete) {
     const weekCount = await Session.countPairSessionsThisWeek(session.teacherId, session.learnerId)
     session.creditsEligible = weekCount < MAX_SESSIONS_PER_PAIR_PER_WEEK
     session.status          = 'completed'
     session.ratingPending   = true
     await session.save()
 
-    if (session.creditsEligible) {
-      await creditService.transferCredits({
-        fromUserId: session.learnerId,
-        toUserId:   session.teacherId,
-        amount:     session.creditsAmount,
-        sessionId:  session._id,
+    if (session.creditsEligible && session.creditsHeld) {
+      // Settle the held credit to the teacher
+      // (learner already paid at booking — no second deduction)
+      await creditService.settleCreditsToTeacher({
+        teacherId: session.teacherId,
+        amount:    session.creditsAmount,
+        sessionId: session._id,
       })
+      session.creditsHeld = false
+      await session.save()
+    } else if (!session.creditsEligible && session.creditsHeld) {
+      // Weekly limit exceeded — refund the learner instead
+      await creditService.refundHeldCredits({
+        learnerId: session.learnerId,
+        amount:    session.creditsAmount,
+        sessionId: session._id,
+        reason:    'Refund — weekly session limit reached between this pair',
+      })
+      session.creditsHeld = false
+      await session.save()
     }
 
     await Promise.all([
@@ -171,7 +238,9 @@ const confirmSession = async (userId, sessionId) => {
     return {
       session,
       creditsTransferred: session.creditsEligible,
-      message: 'Session completed! Credits transferred. Please rate your partner.',
+      message: session.creditsEligible
+        ? 'Session completed! Credits settled. Please rate your partner.'
+        : 'Session completed! No credits transferred (weekly limit reached between this pair).',
     }
   }
 
@@ -185,7 +254,7 @@ const confirmSession = async (userId, sessionId) => {
   }
 }
 
-// ── Get sessions (with userHasRated injected) ─────────────────────────────────
+// ── Get sessions ──────────────────────────────────────────────────────────────
 const getUserSessions = async (userId, query) => {
   const { page, limit, skip } = parsePagination(query)
   const { status, role } = query
@@ -206,22 +275,17 @@ const getUserSessions = async (userId, query) => {
     Session.countDocuments(filter),
   ])
 
-  // Check which completed sessions the current user has already rated
-  const completedIds = sessions
-    .filter(s => s.status === 'completed')
-    .map(s => s._id)
-
-  const myRatings = completedIds.length
+  // Inject canRate + userHasRated
+  const completedIds = sessions.filter(s => s.status === 'completed').map(s => s._id)
+  const myRatings    = completedIds.length
     ? await Rating.find({ sessionId: { $in: completedIds }, raterId: userId }).select('sessionId')
     : []
+  const ratedSet = new Set(myRatings.map(r => r.sessionId.toString()))
 
-  const ratedSessionIds = new Set(myRatings.map(r => r.sessionId.toString()))
-
-  // Inject canRate flag into each session plain object
   const enriched = sessions.map(s => {
     const obj = s.toObject()
-    obj.userHasRated = ratedSessionIds.has(s._id.toString())
-    obj.canRate      = s.status === 'completed' && !ratedSessionIds.has(s._id.toString())
+    obj.userHasRated = ratedSet.has(s._id.toString())
+    obj.canRate      = s.status === 'completed' && !ratedSet.has(s._id.toString())
     return obj
   })
 
@@ -245,4 +309,7 @@ const getSession = async (userId, sessionId) => {
   return session
 }
 
-module.exports = { createSession, acceptSession, cancelSession, confirmSession, getUserSessions, getSession }
+module.exports = {
+  createSession, acceptSession, cancelSession,
+  confirmSession, getUserSessions, getSession,
+}

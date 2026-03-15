@@ -106,10 +106,10 @@ EMAIL_PASS=your_16_char_gmail_app_password
 # OAuth (optional)
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
-GOOGLE_CALLBACK_URL=http://localhost:5000/api/auth/google/callback
+GOOGLE_CALLBACK_URL=http://localhost:5000/auth/google/callback
 GITHUB_CLIENT_ID=
 GITHUB_CLIENT_SECRET=
-GITHUB_CALLBACK_URL=http://localhost:5000/api/auth/github/callback
+GITHUB_CALLBACK_URL=http://localhost:5000/auth/github/callback
 ```
 
 > **Gmail OTP setup:** Go to Google Account → Security → 2-Step Verification → App Passwords. Generate a 16-character password and use that as `EMAIL_PASS`.
@@ -120,11 +120,11 @@ GITHUB_CALLBACK_URL=http://localhost:5000/api/auth/github/callback
 
 **Google** — [console.cloud.google.com](https://console.cloud.google.com)
 - Authorised JS origin: `http://localhost:5000`
-- Redirect URI: `http://localhost:5000/api/auth/google/callback`
+- Redirect URI: `http://localhost:5000/auth/google/callback`
 
 **GitHub** — [github.com/settings/developers](https://github.com/settings/developers)
 - Homepage URL: `http://localhost:5000`
-- Callback URL: `http://localhost:5000/api/auth/github/callback`
+- Callback URL: `http://localhost:5000/auth/github/callback`
 
 ---
 
@@ -142,17 +142,17 @@ GITHUB_CALLBACK_URL=http://localhost:5000/api/auth/github/callback
 
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | `/api/auth/register` | Register with email |
-| POST | `/api/auth/login` | Login |
-| POST | `/api/auth/verify-email` | Verify OTP |
-| GET  | `/api/recommendations` | Get skill matches |
-| GET  | `/api/users/me` | Current user profile |
-| GET  | `/api/users/:id` | Any user's profile |
-| POST | `/api/sessions` | Book a session |
-| PUT  | `/api/sessions/:id/accept` | Accept a session |
-| PUT  | `/api/sessions/:id/confirm` | Mark session as done |
-| POST | `/api/ratings` | Submit a rating |
-| GET  | `/api/chat/:userId` | Get conversation |
-| GET  | `/api/skills` | List all skills |
+| POST | `/auth/register` | Register with email |
+| POST | `/auth/login` | Login |
+| POST | `/auth/verify-email` | Verify OTP |
+| GET  | `/recommendations` | Get skill matches |
+| GET  | `/users/me` | Current user profile |
+| GET  | `/users/:id` | Any user's profile |
+| POST | `/sessions` | Book a session |
+| PUT  | `/sessions/:id/accept` | Accept a session |
+| PUT  | `/sessions/:id/confirm` | Mark session as done |
+| POST | `/ratings` | Submit a rating |
+| GET  | `/chat/:userId` | Get conversation |
+| GET  | `/skills` | List all skills |
 
 ---
