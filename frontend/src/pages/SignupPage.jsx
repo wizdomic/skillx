@@ -58,7 +58,7 @@ export default function SignupPage() {
     } finally { setLoading(false) }
   }
 
-  const oauthUrl = p => `${import.meta.env.VITE_API_URL?.replace('/api', '') || ''}/api/auth/${p}`
+  const oauthUrl = p => `${import.meta.env.VITE_SOCKET_URL || ''}/api/auth/${p}`
 
   if (step === 'verify') return (
     <AuthShell>

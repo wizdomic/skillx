@@ -29,7 +29,7 @@ export default function LoginPage() {
     } finally { setLoading(false) }
   }
 
-  const oauthUrl = p => `${import.meta.env.VITE_API_URL || '/api'}/auth/${p}`
+  const oauthUrl = p => `${import.meta.env.VITE_SOCKET_URL || ''}/api/auth/${p}`
 
   return (
     <AuthShell>
