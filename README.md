@@ -1,140 +1,158 @@
-# SkillX — Skill Exchange Platform MVP
+# SkillX — Peer-to-Peer Skill Exchange Platform
 
-A full-stack credit-based skill exchange platform. Teach what you know, learn what you love. No money changes hands — only credits.
+A full-stack web app where people teach what they know and learn what they love — powered by a credit system. Every session you teach earns you 1 credit. Spend credits to learn from others.
 
 ---
 
 ## Tech Stack
 
-| Layer | Tech |
-|---|---|
-| Frontend | React 18 + Vite + TailwindCSS + Zustand + Socket.IO client |
-| Backend | Node.js + Express + MongoDB (Mongoose) + Redis + Socket.IO |
-| Auth | JWT (access + refresh), bcrypt, Passport (Google + GitHub OAuth), OTP via Twilio / email |
-| Realtime | Socket.IO (chat, session events, reminders) |
-| Jobs | node-cron (session reminders every 15min) |
-
----
-
-## Quick Start
-
-### 1. Start MongoDB & Redis
-```bash
-# With Docker:
-docker run -d -p 27017:27017 mongo
-docker run -d -p 6379:6379 redis
-```
-
-### 2. Backend
-```bash
-cd backend
-npm install
-cp .env.example .env       # fill in MONGODB_URI, JWT_SECRET, JWT_REFRESH_SECRET, CLIENT_URL
-npm run seed               # seed 38 skills + 3 test users
-npm run dev                # → http://localhost:5000
-```
-
-### 3. Frontend
-```bash
-cd frontend
-npm install
-cp .env.example .env       # VITE_API_URL=http://localhost:5000/api
-npm run dev                # → http://localhost:5173
-```
-
----
-
-## Test Accounts (after seeding)
-
-| Email | Password | Teaches | Wants to Learn |
-|---|---|---|---|
-| alice@example.com | Password1 | Python, React | Guitar, Spanish |
-| bob@example.com | Password1 | Guitar, Figma | Python, French |
-| priya@example.com | Password1 | Hindi, Spanish | React, Piano |
+**Backend** — Node.js · Express · MongoDB (Mongoose) · Socket.IO · JWT  
+**Frontend** — React · Vite · TailwindCSS · Zustand
 
 ---
 
 ## Features
 
-- ✅ Email + Phone OTP + Google/GitHub OAuth
-- ✅ 4-step onboarding with skill selection
-- ✅ AI-powered matchmaking (scoring by shared skills + rating + sessions)
-- ✅ Session booking, accept, cancel, confirm flow
-- ✅ Credit wallet (atomic transfers, anti-abuse: max 5 credited sessions/pair/week)
-- ✅ Real-time chat with Socket.IO
-- ✅ Session reminders (cron job, 1hr before)
-- ✅ Star ratings + rolling average
-- ✅ Skill request board (offer / wanted)
-- ✅ JWT refresh token rotation + Redis blacklist
+- 🔐 Email/password auth with OTP verification + Google & GitHub OAuth
+- 🤝 Skill-based matchmaking algorithm — ranked by shared skills & rating
+- 📅 Session booking, acceptance, confirmation & cancellation
+- 💬 Real-time chat with typing indicators (Socket.IO)
+- 🪙 Credit wallet — earn by teaching, spend to learn
+- ⭐ Post-session ratings & reviews
+- 📋 Public skill request board
+- 🌙 Dark / light mode toggle (persists preference)
+- 213 seeded skills across 10 categories
 
 ---
 
 ## Project Structure
 
 ```
-skill-exchange-mvp/
+skill-exchange/
 ├── backend/
 │   ├── src/
-│   │   ├── config/         # db, redis, socket, passport, env
-│   │   ├── middleware/      # authenticate, authorize, rateLimiter, antiAbuse, errorHandler
-│   │   ├── models/         # 8 Mongoose models
-│   │   ├── modules/        # auth, users, skills, sessions, credits, ratings, requests, recommendations, chat
-│   │   ├── services/       # jwt, otp, email, sms
-│   │   ├── jobs/           # sessionReminder cron
-│   │   └── utils/          # apiResponse, asyncHandler, paginate
-│   ├── database/seeds/
-│   ├── server.js
-│   └── package.json
+│   │   ├── config/        # env, db, redis, socket, passport
+│   │   ├── middleware/     # auth, rate limiter, error handler
+│   │   ├── models/         # User, Skill, UserSkill, Session, Rating, Message…
+│   │   ├── modules/        # auth, users, skills, sessions, chat, credits…
+│   │   ├── services/       # jwt, otp, email
+│   │   └── utils/
+│   ├── database/seeds/     # skill seed data (213 skills)
+│   └── server.js
 └── frontend/
-    ├── src/
-    │   ├── api/            # axios clients for all endpoints
-    │   ├── components/     # AppLayout, common UI components
-    │   ├── context/        # SocketContext
-    │   ├── pages/          # 15 pages
-    │   ├── routes/         # AppRouter with protected/public guards
-    │   ├── store/          # Zustand: auth, notifications
-    │   └── utils/          # axiosInstance with JWT refresh
-    ├── index.html
-    └── package.json
+    └── src/
+        ├── api/            # axios wrappers
+        ├── components/     # AppLayout, common UI
+        ├── pages/          # all route pages
+        ├── store/          # zustand stores (auth, notifications, theme)
+        └── utils/
+```
+
+---
+
+## Getting Started
+
+### Prerequisites
+- Node.js 18+
+- MongoDB Atlas (or local MongoDB)
+- Gmail account for OTP emails (optional — OTP prints to terminal as fallback)
+
+### 1. Clone the repo
+
+```bash
+git clone https://github.com/your-username/skillx.git
+cd skillx
+```
+
+### 2. Backend setup
+
+```bash
+cd backend
+npm install
+cp .env.example .env   # fill in your values
+npm run seed           # seeds 213 skills into the database
+npm run dev            # starts on http://localhost:5000
+```
+
+### 3. Frontend setup
+
+```bash
+cd frontend
+npm install
+npm run dev            # starts on http://localhost:5173
 ```
 
 ---
 
 ## Environment Variables
 
-### Backend `.env`
-```
+Create `backend/.env` from `.env.example`:
+
+```env
 PORT=5000
 NODE_ENV=development
 CLIENT_URL=http://localhost:5173
-MONGODB_URI=mongodb://localhost:27017/skill_exchange
-REDIS_URL=redis://localhost:6379
-JWT_SECRET=<32+ char secret>
-JWT_REFRESH_SECRET=<32+ char secret>
+MONGODB_URI=your_mongodb_connection_string
+
+JWT_SECRET=at_least_32_characters_long
+JWT_REFRESH_SECRET=different_32_character_secret
 JWT_EXPIRES_IN=7d
 JWT_REFRESH_EXPIRES_IN=30d
-# Optional — degrade gracefully in dev:
-EMAIL_HOST=smtp.gmail.com
-EMAIL_USER=...
-EMAIL_PASS=...
-TWILIO_ACCOUNT_SID=...
-TWILIO_AUTH_TOKEN=...
-TWILIO_PHONE_NUMBER=...
-GOOGLE_CLIENT_ID=...
-GOOGLE_CLIENT_SECRET=...
-GITHUB_CLIENT_ID=...
-GITHUB_CLIENT_SECRET=...
-SIGNUP_CREDIT_BONUS=10
-MAX_SESSIONS_PER_PAIR_PER_WEEK=5
+
+# Email (optional — OTP prints to terminal if not set)
+EMAIL_USER=you@gmail.com
+EMAIL_PASS=your_16_char_gmail_app_password
+
+# OAuth (optional)
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+GOOGLE_CALLBACK_URL=http://localhost:5000/api/auth/google/callback
+GITHUB_CLIENT_ID=
+GITHUB_CLIENT_SECRET=
+GITHUB_CALLBACK_URL=http://localhost:5000/api/auth/github/callback
 ```
 
-### Frontend `.env`
-```
-VITE_API_URL=http://localhost:5000/api
-VITE_SOCKET_URL=http://localhost:5000
-```
-# skillx
-# skillx
-# skillx
-# skillx
-# skillx
+> **Gmail OTP setup:** Go to Google Account → Security → 2-Step Verification → App Passwords. Generate a 16-character password and use that as `EMAIL_PASS`.
+
+---
+
+## OAuth Setup (optional)
+
+**Google** — [console.cloud.google.com](https://console.cloud.google.com)
+- Authorised JS origin: `http://localhost:5000`
+- Redirect URI: `http://localhost:5000/api/auth/google/callback`
+
+**GitHub** — [github.com/settings/developers](https://github.com/settings/developers)
+- Homepage URL: `http://localhost:5000`
+- Callback URL: `http://localhost:5000/api/auth/github/callback`
+
+---
+
+## Creating Your First Account
+
+1. Open `http://localhost:5173/signup`
+2. Register with any email
+3. If email isn't configured, copy the OTP from the **backend terminal**
+4. Complete onboarding — select skills to teach and learn
+5. The dashboard will show matched users immediately
+
+---
+
+## API Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/auth/register` | Register with email |
+| POST | `/api/auth/login` | Login |
+| POST | `/api/auth/verify-email` | Verify OTP |
+| GET  | `/api/recommendations` | Get skill matches |
+| GET  | `/api/users/me` | Current user profile |
+| GET  | `/api/users/:id` | Any user's profile |
+| POST | `/api/sessions` | Book a session |
+| PUT  | `/api/sessions/:id/accept` | Accept a session |
+| PUT  | `/api/sessions/:id/confirm` | Mark session as done |
+| POST | `/api/ratings` | Submit a rating |
+| GET  | `/api/chat/:userId` | Get conversation |
+| GET  | `/api/skills` | List all skills |
+
+---
