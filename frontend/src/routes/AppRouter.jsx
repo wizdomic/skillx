@@ -4,8 +4,6 @@ import { SocketProvider } from '../context/SocketContext'
 
 import LandingPage           from '../pages/LandingPage'
 import LoginPage             from '../pages/LoginPage'
-import SignupPage            from '../pages/SignupPage'
-import ForgotPasswordPage    from '../pages/ForgotPasswordPage'
 import OAuthCallbackPage     from '../pages/OAuthCallbackPage'
 import OnboardingPage        from '../pages/OnboardingPage'
 import DashboardPage         from '../pages/DashboardPage'
@@ -41,8 +39,8 @@ export default function AppRouter() {
       <Routes>
         <Route path="/"                    element={<LandingPage />} />
         <Route path="/login"               element={<Public><LoginPage /></Public>} />
-        <Route path="/signup"              element={<Public><SignupPage /></Public>} />
-        <Route path="/forgot-password"     element={<Public><ForgotPasswordPage /></Public>} />
+        <Route path="/signup"              element={<Navigate to="/login" replace />} />
+        <Route path="/forgot-password"     element={<Navigate to="/login" replace />} />
         <Route path="/auth/oauth-callback" element={<OAuthCallbackPage />} />
 
         <Route element={<Protected><AppLayout /></Protected>}>

@@ -2,12 +2,12 @@ import { create } from 'zustand'
 import { authApi } from '../api/authApi'
 import { userApi } from '../api/index'
 
-export const useAuthStore = create((set, get) => ({
+export const useAuthStore = create((set) => ({
   user: null,
   isAuthenticated: false,
   isLoading: true,
 
-  // ── Called on app startup and after OAuth callback ─────────────────────────
+  // Called on app startup and after OAuth callback
   initAuth: async () => {
     const token = localStorage.getItem('accessToken')
     if (!token) {
@@ -21,48 +21,6 @@ export const useAuthStore = create((set, get) => ({
       localStorage.clear()
       set({ user: null, isAuthenticated: false, isLoading: false })
     }
-  },
-
-  // ── Login — fetch full profile after auth so skills are included ───────────
-  login: async (credentials) => {
-    const { data } = await authApi.login(credentials)
-    const { accessToken, refreshToken } = data.data
-    localStorage.setItem('accessToken', accessToken)
-    localStorage.setItem('refreshToken', refreshToken)
-    // Fetch full profile (includes teachSkills / learnSkills)
-    const me = await userApi.getMe()
-    const user = me.data.data
-    set({ user, isAuthenticated: true })
-    return user
-  },
-
-  register: async (credentials) => {
-    const { data } = await authApi.register(credentials)
-    return data
-  },
-
-  // ── Email verify — fetch full profile after auth so skills are included ────
-  verifyEmail: async (payload) => {
-    const { data } = await authApi.verifyEmail(payload)
-    const { accessToken, refreshToken } = data.data
-    localStorage.setItem('accessToken', accessToken)
-    localStorage.setItem('refreshToken', refreshToken)
-    // Fetch full profile (includes teachSkills / learnSkills)
-    const me = await userApi.getMe()
-    const user = me.data.data
-    set({ user, isAuthenticated: true })
-    return user
-  },
-
-  loginWithPhone: async (payload) => {
-    const { data } = await authApi.verifyPhoneOTP(payload)
-    const { accessToken, refreshToken } = data.data
-    localStorage.setItem('accessToken', accessToken)
-    localStorage.setItem('refreshToken', refreshToken)
-    const me = await userApi.getMe()
-    const user = me.data.data
-    set({ user, isAuthenticated: true })
-    return user
   },
 
   logout: async () => {

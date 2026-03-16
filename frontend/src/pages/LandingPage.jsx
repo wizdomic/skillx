@@ -14,7 +14,6 @@ export default function LandingPage() {
           <span className="font-bold text-gray-500">SkillX</span>
         </div>
         <div className="flex gap-2">
-          <button onClick={() => nav('/login')} className="btn btn-ghost btn-md">Sign in</button>
           <button onClick={() => nav('/signup')} className="btn btn-primary btn-md">Get started</button>
         </div>
       </nav>
@@ -33,7 +32,6 @@ export default function LandingPage() {
         </p>
         <div className="flex gap-3 justify-center flex-wrap">
           <button onClick={() => nav('/signup')} className="btn btn-primary btn-lg">Start for free →</button>
-          <button onClick={() => nav('/login')} className="btn btn-white btn-lg">Sign in</button>
         </div>
       </div>
 
