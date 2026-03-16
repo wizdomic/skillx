@@ -1,8 +1,13 @@
 // src/modules/users/user.service.js
-const User      = require('../../models/User')
-const UserSkill = require('../../models/UserSkill')
-const Skill     = require('../../models/Skill')
-const { AppError } = require('../../middleware/errorHandler')
+const User              = require('../../models/User')
+const UserSkill         = require('../../models/UserSkill')
+const Skill             = require('../../models/Skill')
+const Session           = require('../../models/Session')
+const Message           = require('../../models/Message')
+const Rating            = require('../../models/Rating')
+const CreditTransaction = require('../../models/CreditTransaction')
+const SkillRequest      = require('../../models/SkillRequest')
+const { AppError }      = require('../../middleware/errorHandler')
 const { parsePagination, buildMeta } = require('../../utils/paginate')
 
 // ── Build a safe skill entry from a UserSkill lean doc + skill lookup map ──────
@@ -22,14 +27,12 @@ const getUserById = async (userId) => {
   const user = await User.findById(userId)
   if (!user || !user.isActive) throw new AppError('User not found.', 404)
 
-  // Get UserSkill docs (no populate — plain IDs only)
   const userSkills = await UserSkill.find({ userId }).lean()
 
   if (!userSkills.length) {
     return { ...user.toSafeObject(), teachSkills: [], learnSkills: [] }
   }
 
-  // Fetch all referenced skills in one query
   const skillIds  = [...new Set(userSkills.map(us => us.skillId.toString()))]
   const skillDocs = await Skill.find({ _id: { $in: skillIds } }).select('name slug category iconUrl').lean()
 
@@ -127,6 +130,24 @@ const removeUserSkill = async (userId, userSkillId) => {
   return { message: 'Skill removed.' }
 }
 
+// ── Delete account — wipes all user data from every collection ────────────────
+const deleteAccount = async (userId) => {
+  const user = await User.findById(userId)
+  if (!user) throw new AppError('User not found.', 404)
+
+  await Promise.all([
+    UserSkill.deleteMany({ userId }),
+    Message.deleteMany({ $or: [{ senderId: userId }, { receiverId: userId }] }),
+    Rating.deleteMany({ $or: [{ raterId: userId }, { ratedId: userId }] }),
+    CreditTransaction.deleteMany({ userId }),
+    SkillRequest.deleteMany({ userId }),
+    Session.deleteMany({ $or: [{ teacherId: userId }, { learnerId: userId }] }),
+  ])
+
+  await User.findByIdAndDelete(userId)
+  return { message: 'Account deleted.' }
+}
+
 // ── List users ────────────────────────────────────────────────────────────────
 const listUsers = async (query) => {
   const { page, limit, skip } = parsePagination(query)
@@ -152,5 +173,5 @@ const listUsers = async (query) => {
 
 module.exports = {
   getUserById, updateProfile, completeOnboarding,
-  addUserSkill, removeUserSkill, listUsers,
+  addUserSkill, removeUserSkill, deleteAccount, listUsers,
 }

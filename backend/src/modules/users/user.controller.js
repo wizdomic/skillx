@@ -33,9 +33,17 @@ const removeSkill = asyncHandler(async (req, res) => {
   success(res, { message: data.message });
 });
 
+const deleteAccount = asyncHandler(async (req, res) => {
+  await userService.deleteAccount(req.user._id);
+  success(res, { message: 'Your account has been permanently deleted.' });
+});
+
 const listUsers = asyncHandler(async (req, res) => {
   const { users, meta } = await userService.listUsers(req.query);
   success(res, { data: { users }, meta });
 });
 
-module.exports = { getMe, getUser, updateProfile, completeOnboarding, addSkill, removeSkill, listUsers };
+module.exports = {
+  getMe, getUser, updateProfile, completeOnboarding,
+  addSkill, removeSkill, deleteAccount, listUsers,
+};

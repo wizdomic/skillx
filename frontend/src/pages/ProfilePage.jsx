@@ -10,15 +10,18 @@ import { format } from 'date-fns'
 export default function ProfilePage() {
   const { userId } = useParams()
   const nav = useNavigate()
-  const { user: me } = useAuthStore()
+  const { user: me, logout } = useAuthStore()
 
-  const [profile, setProfile]     = useState(null)
-  const [ratings, setRatings]     = useState([])
-  const [loading, setLoading]     = useState(true)
-  const [bookModal, setBookModal] = useState(false)
-  const [form, setForm]           = useState({ skillId:'', scheduledAt:'', notes:'' })
-  const [booking, setBooking]     = useState(false)
-  const [activeTab, setActiveTab] = useState('about')
+  const [profile, setProfile]             = useState(null)
+  const [ratings, setRatings]             = useState([])
+  const [loading, setLoading]             = useState(true)
+  const [bookModal, setBookModal]         = useState(false)
+  const [deleteModal, setDeleteModal]     = useState(false)
+  const [deleteConfirm, setDeleteConfirm] = useState('')
+  const [deleting, setDeleting]           = useState(false)
+  const [form, setForm]                   = useState({ skillId:'', scheduledAt:'', notes:'' })
+  const [booking, setBooking]             = useState(false)
+  const [activeTab, setActiveTab]         = useState('about')
 
   const isMe = userId === me?._id
 
@@ -56,6 +59,20 @@ export default function ProfilePage() {
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to send request')
     } finally { setBooking(false) }
+  }
+
+  const handleDeleteAccount = async () => {
+    if (deleteConfirm !== 'DELETE') return
+    setDeleting(true)
+    try {
+      await userApi.deleteAccount()
+      await logout()
+      toast.success('Your account has been permanently deleted.')
+      nav('/login')
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to delete account')
+      setDeleting(false)
+    }
   }
 
   if (loading) return <Loader />
@@ -110,14 +127,10 @@ export default function ProfilePage() {
           </h1>
           <div className="flex items-center gap-2 flex-wrap mb-2">
             {profile.location && (
-              <span className="text-sm" style={{ color: 'var(--text-muted)' }}>
-                📍 {profile.location}
-              </span>
+              <span className="text-sm" style={{ color: 'var(--text-muted)' }}>📍 {profile.location}</span>
             )}
             {profile.timezone && profile.timezone !== 'UTC' && (
-              <span className="text-xs" style={{ color: 'var(--text-faint)' }}>
-                🕐 {profile.timezone}
-              </span>
+              <span className="text-xs" style={{ color: 'var(--text-faint)' }}>🕐 {profile.timezone}</span>
             )}
           </div>
 
@@ -165,9 +178,7 @@ export default function ProfilePage() {
                     <span className="badge-orange text-xs">{ts.skillId.name}</span>
                     {ts.level && (
                       <span className="text-[10px] capitalize flex-shrink-0"
-                        style={{ color: 'var(--text-faint)' }}>
-                        {ts.level}
-                      </span>
+                        style={{ color: 'var(--text-faint)' }}>{ts.level}</span>
                     )}
                   </div>
                 ))}
@@ -218,8 +229,8 @@ export default function ProfilePage() {
           <div className="space-y-4 fade-up">
             <div className="grid grid-cols-3 gap-3">
               {[
-                { icon:'🎓', value: teach.length,              label:'Skills teaching' },
-                { icon:'📚', value: learn.length,              label:'Skills learning' },
+                { icon:'🎓', value: teach.length,               label:'Skills teaching' },
+                { icon:'📚', value: learn.length,               label:'Skills learning' },
                 { icon:'📅', value: profile.totalSessions || 0, label:'Sessions done' },
               ].map(s => (
                 <div key={s.label} className="card p-3 text-center">
@@ -248,6 +259,24 @@ export default function ProfilePage() {
                 </p>
               </button>
             ) : null}
+
+            {/* ── Danger zone — own profile only ─────────────────────── */}
+            {isMe && (
+              <div className="rounded-xl p-4"
+                style={{ border: '1px solid rgba(239,68,68,0.25)', background: 'rgba(239,68,68,0.04)' }}>
+                <p className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: '#ef4444' }}>
+                  Danger zone
+                </p>
+                <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>
+                  Permanently delete your account and all associated data. This cannot be undone.
+                </p>
+                <button
+                  onClick={() => { setDeleteConfirm(''); setDeleteModal(true) }}
+                  className="btn btn-danger btn-sm">
+                  🗑️ Delete my account
+                </button>
+              </div>
+            )}
           </div>
         )}
 
@@ -370,6 +399,51 @@ export default function ProfilePage() {
             <button className="btn btn-white btn-md flex-1" onClick={() => setBookModal(false)}>Cancel</button>
             <button className="btn btn-primary btn-md flex-1" onClick={handleBook} disabled={booking}>
               {booking ? 'Sending…' : 'Send request'}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Delete account modal */}
+      <Modal
+        open={deleteModal}
+        onClose={() => { setDeleteModal(false); setDeleteConfirm('') }}
+        title="Delete your account">
+        <div className="space-y-4">
+          <div className="rounded-lg p-3"
+            style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}>
+            <p className="text-sm font-semibold mb-1" style={{ color: '#ef4444' }}>
+              ⚠️ This cannot be undone
+            </p>
+            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+              This will permanently delete your account, skills, sessions, messages, ratings, and credits from our servers.
+            </p>
+          </div>
+
+          <div>
+            <label className="label">
+              Type <strong style={{ color: 'var(--text)' }}>DELETE</strong> to confirm
+            </label>
+            <input
+              className="input"
+              placeholder="DELETE"
+              value={deleteConfirm}
+              onChange={e => setDeleteConfirm(e.target.value)}
+              autoComplete="off"
+            />
+          </div>
+
+          <div className="flex gap-2">
+            <button
+              className="btn btn-white btn-md flex-1"
+              onClick={() => { setDeleteModal(false); setDeleteConfirm('') }}>
+              Cancel
+            </button>
+            <button
+              className="btn btn-danger btn-md flex-1"
+              onClick={handleDeleteAccount}
+              disabled={deleteConfirm !== 'DELETE' || deleting}>
+              {deleting ? 'Deleting…' : 'Delete permanently'}
             </button>
           </div>
         </div>

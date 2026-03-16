@@ -7,6 +7,7 @@ export const userApi = {
   completeOnboarding: (data)     => api.post('/users/me/onboarding', data),
   addSkill:           (data)     => api.post('/users/me/skills', data),
   removeSkill:        (id)       => api.delete(`/users/me/skills/${id}`),
+  deleteAccount:      ()         => api.delete('/users/me'),
 }
 
 export const skillApi = {
@@ -48,10 +49,10 @@ export const recommendationApi = {
 }
 
 export const chatApi = {
-  send:                 (data)           => api.post('/chat', data),
-  deleteMessage:        (messageId)      => api.delete(`/chat/message/${messageId}`),
-  deleteConversation:   (userId)         => api.delete(`/chat/conversation/${userId}`),
-  getConversation:      (userId, params) => api.get(`/chat/${userId}`, { params }),
-  getConversationList:  ()               => api.get('/chat/conversations'),
-  getUnreadCount:       ()               => api.get('/chat/unread'),
+  send:                (data)           => api.post('/chat', data),
+  deleteMessage:       (messageId)      => api.delete(`/chat/message/${messageId}`),
+  deleteConversation:  (userId)         => api.delete(`/chat/conversation/${userId}`),
+  getConversation:     (userId, params) => api.get(`/chat/${userId}`, { params }),
+  getConversationList: ()               => api.get('/chat/conversations'),
+  getUnreadCount:      ()               => api.get('/chat/unread'),
 }
