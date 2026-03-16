@@ -24,6 +24,10 @@ const chatController           = require('./modules/chat/chat.controller')
 
 const app = express()
 
+// Trust the first proxy — required on Render so express-rate-limit
+// can read the real client IP from X-Forwarded-For
+app.set('trust proxy', 1)
+
 // ── Security headers ──────────────────────────────────────────────────────────
 app.use(helmet({
   contentSecurityPolicy:     NODE_ENV === 'production' ? undefined : false,
