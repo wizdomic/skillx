@@ -1,53 +1,46 @@
 // src/modules/requests/request.controller.js
-const requestService = require('./request.service');
-const { success } = require('../../utils/apiResponse');
-const asyncHandler = require('../../utils/asyncHandler');
+const requestService = require('./request.service')
+const { success }    = require('../../utils/apiResponse')
+const asyncHandler   = require('../../utils/asyncHandler')
 
 const listRequests = asyncHandler(async (req, res) => {
-  const { requests, meta } = await requestService.listRequests(req.query);
-  success(res, { data: { requests }, meta });
-});
+  const { requests, meta } = await requestService.listRequests(req.query, req.user._id)
+  success(res, { data: { requests }, meta })
+})
 
 const createRequest = asyncHandler(async (req, res) => {
-  const data = await requestService.createRequest(req.user._id, req.body);
-  success(res, { statusCode: 201, message: 'Request posted.', data });
-});
+  const data = await requestService.createRequest(req.user._id, req.body)
+  success(res, { statusCode: 201, message: 'Request posted.', data })
+})
 
 const updateRequest = asyncHandler(async (req, res) => {
-  const data = await requestService.updateRequest(req.user._id, req.params.requestId, req.body);
-  success(res, { message: 'Request updated.', data });
-});
+  const data = await requestService.updateRequest(req.user._id, req.params.requestId, req.body)
+  success(res, { message: 'Request updated.', data })
+})
 
 const deleteRequest = asyncHandler(async (req, res) => {
-  const data = await requestService.deleteRequest(req.user._id, req.params.requestId);
-  success(res, { message: data.message });
-});
+  const data = await requestService.deleteRequest(req.user._id, req.params.requestId)
+  success(res, { message: data.message })
+})
 
-module.exports = { listRequests, createRequest, updateRequest, deleteRequest };
+module.exports = { listRequests, createRequest, updateRequest, deleteRequest }
 
 // ── Routes ────────────────────────────────────────────────────────────────────
-const express = require('express');
-const router = express.Router();
-const authenticate = require('../../middleware/authenticate');
-const { body } = require('express-validator');
+const express      = require('express')
+const router       = express.Router()
+const authenticate = require('../../middleware/authenticate')
+const { body }     = require('express-validator')
 
 const validate = (req, res, next) => {
-  const { validationResult } = require('express-validator');
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) return res.status(422).json({ success: false, errors: errors.array() });
-  next();
-};
+  const { validationResult } = require('express-validator')
+  const errors = validationResult(req)
+  if (!errors.isEmpty()) return res.status(422).json({ success: false, errors: errors.array() })
+  next()
+}
 
-/**
- * GET  /api/requests       - List open requests (filterable)
- * POST /api/requests       - Create a new request
- * PATCH /api/requests/:id  - Update your request
- * DELETE /api/requests/:id - Delete your request
- */
-router.get('/', authenticate, module.exports.listRequests);
+router.get('/',    authenticate, module.exports.listRequests)
 
-router.post(
-  '/',
+router.post('/',
   authenticate,
   [
     body('skillId').notEmpty(),
@@ -57,9 +50,9 @@ router.post(
     validate,
   ],
   module.exports.createRequest
-);
+)
 
-router.patch('/:requestId', authenticate, module.exports.updateRequest);
-router.delete('/:requestId', authenticate, module.exports.deleteRequest);
+router.patch('/:requestId',  authenticate, module.exports.updateRequest)
+router.delete('/:requestId', authenticate, module.exports.deleteRequest)
 
-module.exports.router = router;
+module.exports.router = router

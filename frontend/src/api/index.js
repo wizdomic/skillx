@@ -8,6 +8,7 @@ export const userApi = {
   addSkill:           (data)     => api.post('/users/me/skills', data),
   removeSkill:        (id)       => api.delete(`/users/me/skills/${id}`),
   deleteAccount:      ()         => api.delete('/users/me'),
+  searchUsers:        (q)        => api.get('/users/search', { params: { q } }),
 }
 
 export const skillApi = {

@@ -125,6 +125,11 @@ export default function ProfilePage() {
           <h1 className="text-2xl font-bold mb-1" style={{ color: 'var(--text)' }}>
             {profile.name}
           </h1>
+          {profile.username && (
+            <p className="text-sm font-medium mb-1" style={{ color: 'var(--brand)' }}>
+              @{profile.username}
+            </p>
+          )}
           <div className="flex items-center gap-2 flex-wrap mb-2">
             {profile.location && (
               <span className="text-sm" style={{ color: 'var(--text-muted)' }}>📍 {profile.location}</span>
