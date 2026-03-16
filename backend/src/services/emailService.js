@@ -1,6 +1,10 @@
 // src/services/emailService.js
 const nodemailer = require('nodemailer')
+const dns = require('dns')
 const { EMAIL_HOST, EMAIL_PORT, EMAIL_USER, EMAIL_PASS, EMAIL_FROM } = require('../config/env')
+
+// Force IPv4 — Render free tier cannot reach external SMTP over IPv6
+dns.setDefaultResultOrder('ipv4first')
 
 const isConfigured = !!(EMAIL_USER && EMAIL_PASS)
 
@@ -10,18 +14,18 @@ if (isConfigured) {
   transporter = nodemailer.createTransport({
     host: EMAIL_HOST || 'smtp.gmail.com',
     port: EMAIL_PORT || 587,
-    secure: false,          // use STARTTLS, not SSL
-    requireTLS: true,       // force upgrade to TLS
+    secure: false,
+    requireTLS: true,
+    family: 4,              // force IPv4 socket — fixes ENETUNREACH on Render
     auth: {
       user: EMAIL_USER,
-      pass: EMAIL_PASS,     // must be Gmail App Password (16 chars, no spaces)
+      pass: EMAIL_PASS,
     },
     tls: {
-      rejectUnauthorized: false, // avoids cert issues in dev
+      rejectUnauthorized: false,
     },
   })
 
-  // Verify on startup — prints result to terminal so you know instantly
   transporter.verify((err) => {
     if (err) {
       console.error(`❌  Email transporter error: ${err.message}`)
@@ -48,7 +52,6 @@ const sendEmail = async ({ to, subject, html, text }) => {
       html,
       text,
     })
-    console.log(`✅  Email sent → ${to} | ${subject}`)
   } catch (err) {
     console.error(`❌  Email send failed: ${err.message}`)
     printFallback(to, subject, text || html)
