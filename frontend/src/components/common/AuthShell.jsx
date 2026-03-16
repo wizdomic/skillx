@@ -14,7 +14,7 @@ export function AuthShell({ children }) {
 export function Logo() {
   return (
     <div className="inline-flex items-center gap-2 mb-3">
-      <div className="w-8 h-8 rounded-lg bg-orange-500 flex items-center justify-center">
+      <div className="w-8 h-8 rounded-lg bg-blue-500 flex items-center justify-center">
         <span className="text-white font-bold text-sm">S</span>
       </div>
       <span className="font-bold text-lg" style={{ color: 'var(--text)' }}>SkillX</span>
