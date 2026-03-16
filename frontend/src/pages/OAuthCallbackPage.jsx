@@ -14,7 +14,10 @@ export default function OAuthCallbackPage() {
     if (access && refresh) {
       localStorage.setItem('accessToken', access)
       localStorage.setItem('refreshToken', refresh)
-      initAuth().then(() => nav('/dashboard'))
+      initAuth().then(() => {
+        const { user } = useAuthStore.getState()
+        nav(user?.onboardingCompleted ? '/dashboard' : '/onboarding')
+      })
     } else {
       nav('/login')
     }
