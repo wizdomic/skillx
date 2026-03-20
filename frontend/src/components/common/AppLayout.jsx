@@ -57,7 +57,9 @@ function NotificationBell() {
   const navigate = useNavigate()
   const { notifications, markAllRead, deleteNotification, clearAllNotifications } = useNotificationStore()
   const [open, setOpen] = useState(false)
-  const ref = useRef(null)
+  const [dropPos, setDropPos] = useState({ top: 0, left: 0 })
+  const btnRef = useRef(null)
+  const ref    = useRef(null)
   const unread = notifications.filter(n => !n.read).length
 
   useEffect(() => {
@@ -67,87 +69,97 @@ function NotificationBell() {
   }, [])
 
   const handleOpen = () => {
+    if (!open && btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect()
+      setDropPos({ top: rect.top, left: rect.right + 8 })
+    }
     setOpen(o => !o)
     if (!open && unread > 0) markAllRead()
   }
 
   const icons = {
-    session_request: '📅',
+    session_request:  '📅',
     session_accepted: '✅',
-    session_cancelled: '❌',
-    meeting_link: '🔗',
-    reminder: '⏰',
-    rate_prompt: '⭐',
+    session_cancelled:'❌',
+    meeting_link:     '🔗',
+    reminder:         '⏰',
+    rate_prompt:      '⭐',
   }
 
   return (
-    <div ref={ref} style={{ position: 'relative' }}>
-      <button onClick={handleOpen}
+    <div ref={ref}>
+      <button ref={btnRef} onClick={handleOpen}
         className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
         style={{ color: 'var(--text-muted)' }}
         onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-2)'; e.currentTarget.style.color = 'var(--text)' }}
         onMouseLeave={e => { e.currentTarget.style.background = ''; e.currentTarget.style.color = 'var(--text-muted)' }}>
-        <span style={{ position: 'relative', display: 'inline-flex' }}>
+        <span style={{ position: 'relative', display: 'inline-flex', flexShrink: 0 }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/>
           </svg>
           {unread > 0 && (
             <span style={{
-              position: 'absolute', top: '-4px', right: '-4px',
-              width: '14px', height: '14px', borderRadius: '50%',
+              position: 'absolute', top: '-5px', right: '-5px',
+              minWidth: '14px', height: '14px', borderRadius: '7px',
               background: 'var(--brand)', color: '#fff',
-              fontSize: '9px', fontWeight: 700,
+              fontSize: '9px', fontWeight: 700, padding: '0 3px',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
               {unread > 9 ? '9+' : unread}
             </span>
           )}
         </span>
-        <span className="flex-1">Notifications</span>
+        <span className="flex-1 text-medium">Notifications</span>
       </button>
 
       {open && (
         <div style={{
-          position: 'absolute', bottom: '110%', left: 0,
-          width: '320px', zIndex: 50,
+          position: 'fixed',
+          top:  `${dropPos.top}px`,
+          left: `${dropPos.left}px`,
+          transform: 'translateY(-100%) translateY(-8px)',
+          width: '300px', zIndex: 9999,
           background: 'var(--surface)', border: '1px solid var(--border)',
           borderRadius: '12px', boxShadow: 'var(--shadow-md)',
           overflow: 'hidden',
         }}>
           <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <p style={{ fontWeight: 500, fontSize: '14px', color: 'var(--text)' }}>Notifications</p>
+            <p style={{ fontWeight: 500, fontSize: '14px', color: 'var(--text)', margin: 0 }}>Notifications</p>
             {notifications.length > 0 && (
               <button onClick={clearAllNotifications}
-                style={{ fontSize: '11px', color: 'var(--text-faint)', cursor: 'pointer' }}>
+                style={{ fontSize: '11px', color: 'var(--text-faint)', cursor: 'pointer', background: 'none', border: 'none', padding: 0 }}>
                 Clear all
               </button>
             )}
           </div>
 
-          <div style={{ maxHeight: '360px', overflowY: 'auto' }}>
+          <div style={{ maxHeight: '340px', overflowY: 'auto' }}>
             {notifications.length === 0 ? (
-              <div style={{ padding: '32px 16px', textAlign: 'center' }}>
-                <p style={{ fontSize: '13px', color: 'var(--text-faint)' }}>No notifications yet</p>
+              <div style={{ padding: '28px 16px', textAlign: 'center' }}>
+                <p style={{ fontSize: '13px', color: 'var(--text-faint)', margin: 0 }}>No notifications yet</p>
               </div>
             ) : notifications.map(n => (
               <div key={n.id}
                 style={{
-                  padding: '12px 16px',
+                  padding: '11px 14px',
                   borderBottom: '1px solid var(--border)',
                   background: n.read ? 'transparent' : 'var(--brand-bg)',
                   display: 'flex', gap: '10px', alignItems: 'flex-start',
                   cursor: n.sessionId ? 'pointer' : 'default',
                 }}
+                onMouseEnter={e => { if (n.sessionId) e.currentTarget.style.background = 'var(--surface-2)' }}
+                onMouseLeave={e => { e.currentTarget.style.background = n.read ? 'transparent' : 'var(--brand-bg)' }}
                 onClick={() => { if (n.sessionId) { navigate('/sessions'); setOpen(false) } }}>
-                <span style={{ fontSize: '18px', flexShrink: 0, marginTop: '1px' }}>
+                <span style={{ fontSize: '16px', flexShrink: 0, lineHeight: '20px' }}>
                   {icons[n.type] || '🔔'}
                 </span>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <p style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text)', margin: 0 }}>{n.title}</p>
-                  <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '2px 0 0' }}>{n.body}</p>
+                  <p style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text)', margin: 0, lineHeight: '1.4' }}>{n.title}</p>
+                  <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '2px 0 0', lineHeight: '1.4' }}>{n.body}</p>
                 </div>
-                <button onClick={e => { e.stopPropagation(); deleteNotification(n.id) }}
-                  style={{ color: 'var(--text-faint)', flexShrink: 0, lineHeight: 1, fontSize: '16px', cursor: 'pointer' }}>
+                <button
+                  onClick={e => { e.stopPropagation(); deleteNotification(n.id) }}
+                  style={{ color: 'var(--text-faint)', flexShrink: 0, fontSize: '18px', lineHeight: 1, cursor: 'pointer', background: 'none', border: 'none', padding: '0 0 0 4px', marginTop: '-1px' }}>
                   ×
                 </button>
               </div>

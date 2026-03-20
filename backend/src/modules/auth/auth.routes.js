@@ -8,6 +8,7 @@ const router = express.Router()
 
 // ── DEV ONLY — instant login without OAuth ────────────────────────────────────
 // Visit http://localhost:5000/api/auth/dev-login in your browser to log in
+// Automatically disabled in production — safe to leave in codebase
 if (process.env.NODE_ENV !== 'production') {
   const User       = require('../../models/User')
   const jwtService = require('../../services/jwtService')
