@@ -70,8 +70,12 @@ export default function SkillsPage() {
     : allSkills
 
   const openModal = (skill) => {
+    const hasTeach = myIds.has(`${skill._id}:teach`)
+    const hasLearn = myIds.has(`${skill._id}:learn`)
+    // Default to the type not yet added
+    const defaultType = hasTeach ? 'learn' : 'teach'
     setModal(skill)
-    setAddForm({ type: 'teach', level: 'intermediate', description: '' })
+    setAddForm({ type: defaultType, level: 'intermediate', description: '' })
   }
 
   const handleAdd = async () => {
@@ -168,7 +172,7 @@ export default function SkillsPage() {
                 const hasLearn  = myIds.has(`${skill._id}:learn`)
                 const bothAdded = hasTeach && hasLearn
                 return (
-                  <SkillCard key={skill._id} skill={skill} bothAdded={bothAdded}
+                  <SkillCard key={skill._id} skill={skill} myIds={myIds}
                     onAdd={() => openModal(skill)} />
                 )
               })}
@@ -217,7 +221,7 @@ export default function SkillsPage() {
                   {catSkills.slice(0, 10).map(skill => {
                     const bothAdded = myIds.has(`${skill._id}:teach`) && myIds.has(`${skill._id}:learn`)
                     return (
-                      <SkillCard key={skill._id} skill={skill} bothAdded={bothAdded}
+                      <SkillCard key={skill._id} skill={skill} myIds={myIds}
                         onAdd={() => openModal(skill)} />
                     )
                   })}
@@ -244,7 +248,7 @@ export default function SkillsPage() {
             {filtered.map(skill => {
               const bothAdded = myIds.has(`${skill._id}:teach`) && myIds.has(`${skill._id}:learn`)
               return (
-                <SkillCard key={skill._id} skill={skill} bothAdded={bothAdded}
+                <SkillCard key={skill._id} skill={skill} myIds={myIds}
                   onAdd={() => openModal(skill)} />
               )
             })}
@@ -260,16 +264,23 @@ export default function SkillsPage() {
               { v: 'teach', l: '🎓 Teach it', s: 'Earn 1 credit per session' },
               { v: 'learn', l: '📚 Learn it', s: 'Spend 1 credit per session' },
             ].map(({ v, l, s }) => {
-              const active = addForm.type === v
+              const active   = addForm.type === v
+              const alreadyAdded = modal && myIds.has(`${modal._id}:${v}`)
               return (
-                <button key={v} onClick={() => setAddForm(f => ({ ...f, type: v }))}
+                <button key={v}
+                  onClick={() => !alreadyAdded && setAddForm(f => ({ ...f, type: v }))}
+                  disabled={alreadyAdded}
                   className="p-3 rounded-lg text-left transition-all"
                   style={{
-                    border:     `1px solid ${active ? (v === 'teach' ? 'var(--brand)' : '#3b82f6') : 'var(--border)'}`,
-                    background: active ? (v === 'teach' ? 'var(--accent-bg)' : 'rgba(59,130,246,0.08)') : 'var(--surface-2)',
+                    border:     `1px solid ${alreadyAdded ? 'var(--border)' : active ? (v === 'teach' ? 'var(--brand)' : '#3b82f6') : 'var(--border)'}`,
+                    background: alreadyAdded ? 'var(--surface-2)' : active ? (v === 'teach' ? 'var(--accent-bg)' : 'rgba(59,130,246,0.08)') : 'var(--surface-2)',
+                    opacity:    alreadyAdded ? 0.5 : 1,
+                    cursor:     alreadyAdded ? 'not-allowed' : 'pointer',
                   }}>
                   <p className="font-semibold text-sm" style={{ color: 'var(--text)' }}>{l}</p>
-                  <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{s}</p>
+                  <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                    {alreadyAdded ? '✓ Already added' : s}
+                  </p>
                 </button>
               )
             })}
@@ -317,13 +328,26 @@ export default function SkillsPage() {
   )
 }
 
-function SkillCard({ skill, bothAdded, onAdd }) {
+function SkillCard({ skill, myIds, onAdd }) {
+  const hasTeach  = myIds.has(`${skill._id}:teach`)
+  const hasLearn  = myIds.has(`${skill._id}:learn`)
+  const bothAdded = hasTeach && hasLearn
+
+  let statusBadge = null
+  if (bothAdded) {
+    statusBadge = <span className="badge-green text-[10px]">✓ Both added</span>
+  } else if (hasTeach) {
+    statusBadge = <span className="badge-orange text-[10px]">🎓 Teaching</span>
+  } else if (hasLearn) {
+    statusBadge = <span className="badge-blue text-[10px]">📚 Learning</span>
+  }
+
   return (
     <div className="rounded-xl p-3 text-center transition-all"
       style={{
-        background:  bothAdded ? 'var(--accent-bg)' : 'var(--surface)',
-        border:      `1px solid ${bothAdded ? 'var(--accent-border)' : 'var(--border)'}`,
-        boxShadow:   'var(--shadow)',
+        background: bothAdded ? 'var(--accent-bg)' : 'var(--surface)',
+        border:     `1px solid ${bothAdded ? 'var(--accent-border)' : 'var(--border)'}`,
+        boxShadow:  'var(--shadow)',
       }}>
       <div className="text-xl mb-1.5">{CAT_EMOJI[skill.category] || '✨'}</div>
       <p className="font-semibold text-xs leading-tight mb-0.5" style={{ color: 'var(--text)' }}>
@@ -334,6 +358,14 @@ function SkillCard({ skill, bothAdded, onAdd }) {
       </p>
       {bothAdded ? (
         <span className="badge-green text-[10px]">✓ Added</span>
+      ) : statusBadge ? (
+        <button onClick={onAdd}
+          className="w-full text-xs font-semibold rounded-lg py-1 transition-all"
+          style={{ background: 'var(--surface-2)', color: 'var(--brand)', border: '1px solid var(--brand-border)' }}
+          onMouseEnter={e => { e.currentTarget.style.background = 'var(--brand)'; e.currentTarget.style.color = '#fff' }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'var(--surface-2)'; e.currentTarget.style.color = 'var(--brand)' }}>
+          + Add other
+        </button>
       ) : (
         <button onClick={onAdd}
           className="w-full text-xs font-semibold rounded-lg py-1 transition-all"
