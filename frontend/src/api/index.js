@@ -9,6 +9,7 @@ export const userApi = {
   removeSkill:        (id)       => api.delete(`/users/me/skills/${id}`),
   deleteAccount:      ()         => api.delete('/users/me'),
   searchUsers:        (q)        => api.get('/users/search', { params: { q } }),
+  uploadAvatar:       (formData) => api.post('/users/me/avatar', formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
 }
 
 export const skillApi = {

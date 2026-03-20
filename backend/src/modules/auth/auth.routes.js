@@ -6,6 +6,36 @@ const authenticate = require('../../middleware/authenticate')
 
 const router = express.Router()
 
+// ── DEV ONLY — instant login without OAuth ────────────────────────────────────
+// Visit http://localhost:5000/api/auth/dev-login in your browser to log in
+if (process.env.NODE_ENV !== 'production') {
+  const User       = require('../../models/User')
+  const jwtService = require('../../services/jwtService')
+
+  router.get('/dev-login', async (req, res) => {
+    try {
+      let user = await User.findOne({ email: 'dev@skillx.local' })
+      if (!user) {
+        user = await User.create({
+          name:                'Dev User',
+          email:               'dev@skillx.local',
+          username:            'dev_user',
+          oauthProvider:       'google',
+          oauthId:             'dev-local-id',
+          isEmailVerified:     true,
+          onboardingCompleted: true,
+          creditBalance:       100,
+        })
+      }
+      const { accessToken, refreshToken } = jwtService.issueTokenPair(user)
+      const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173'
+      res.redirect(`${clientUrl}/auth/oauth-callback?accessToken=${accessToken}&refreshToken=${refreshToken}`)
+    } catch (err) {
+      res.status(500).json({ error: err.message })
+    }
+  })
+}
+
 // ── Google ────────────────────────────────────────────────────────────────────
 router.get('/google',
   passport.authenticate('google', { scope: ['profile', 'email'] })

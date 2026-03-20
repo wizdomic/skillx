@@ -14,10 +14,7 @@ const isValidUrl = (str) => {
   try { new URL(str); return str.startsWith('http') } catch { return false }
 }
 
-// ── Create ────────────────────────────────────────────────────────────────────
-const createSession = async (learnerId, {
-  teacherId, skillId, scheduledAt, durationMins = 60, notes = '',
-}) => {
+const createSession = async (learnerId, { teacherId, skillId, scheduledAt, durationMins = 60, notes = '' }) => {
   if (learnerId.toString() === teacherId.toString())
     throw new AppError('You cannot book a session with yourself.', 400)
 
@@ -33,8 +30,7 @@ const createSession = async (learnerId, {
     throw new AppError('Insufficient credits. You need at least 1 credit to book a session.', 402)
 
   const scheduledDate = new Date(scheduledAt)
-  if (scheduledDate <= new Date())
-    throw new AppError('Session must be scheduled in the future.', 400)
+  if (scheduledDate <= new Date()) throw new AppError('Session must be scheduled in the future.', 400)
 
   const conflictStart = new Date(scheduledDate.getTime() - 60 * 60 * 1000)
   const conflictEnd   = new Date(scheduledDate.getTime() + durationMins * 60 * 1000)
@@ -60,20 +56,12 @@ const createSession = async (learnerId, {
     throw err
   }
 
-  try {
-    getIO().to(`user:${teacherId}`).emit('session:new_request', {
-      sessionId: session._id, learnerName: learner.name, skillName: skill.name, scheduledAt: session.scheduledAt,
-    })
-  } catch (_) {}
-
-  if (teacher.email && teacher.isEmailVerified) {
-    emailService.sendSessionRequestEmail(teacher.email, learner.name, skill.name, session.scheduledAt).catch(console.error)
-  }
+  try { getIO().to(`user:${teacherId}`).emit('session:new_request', { sessionId: session._id, learnerName: learner.name, skillName: skill.name, scheduledAt: session.scheduledAt }) } catch (_) {}
+  if (teacher.email) emailService.sendSessionRequestEmail(teacher.email, learner.name, skill.name, session.scheduledAt).catch(() => {})
 
   return session.populate(['teacherId', 'learnerId', 'skillId'])
 }
 
-// ── Accept (one-click, Jitsi auto-generated) ──────────────────────────────────
 const acceptSession = async (teacherId, sessionId) => {
   const session = await Session.findById(sessionId)
   if (!session) throw new AppError('Session not found.', 404)
@@ -82,29 +70,29 @@ const acceptSession = async (teacherId, sessionId) => {
   if (session.status !== 'pending')
     throw new AppError(`Session cannot be accepted. Current status: ${session.status}.`, 400)
 
-  session.status          = 'accepted'
+  session.status = 'accepted'
   session.meetingPlatform = 'jitsi'
-  session.videoLink       = `https://meet.jit.si/skillx-${session._id}`
+  session.videoLink = `https://meet.jit.si/skillx-${session._id}`
   await session.save()
 
-  try {
-    getIO().to(`user:${session.learnerId}`).emit('session:accepted', { sessionId: session._id })
-  } catch (_) {}
+  const [teacher, learner, skill] = await Promise.all([
+    User.findById(session.teacherId).select('name'),
+    User.findById(session.learnerId).select('name email'),
+    Skill.findById(session.skillId).select('name'),
+  ])
+
+  try { getIO().to(`user:${session.learnerId}`).emit('session:accepted', { sessionId: session._id }) } catch (_) {}
+  if (learner.email) emailService.sendSessionAcceptedEmail(learner.email, teacher.name, skill.name, session.scheduledAt).catch(() => {})
 
   return session.populate(['teacherId', 'learnerId', 'skillId'])
 }
 
-// ── Set / update meeting link ─────────────────────────────────────────────────
 const setMeetingLink = async (userId, sessionId, { platform, customLink }) => {
   const session = await Session.findById(sessionId)
   if (!session) throw new AppError('Session not found.', 404)
-
-  const isParticipant =
-    session.teacherId.toString() === userId.toString() ||
-    session.learnerId.toString() === userId.toString()
+  const isParticipant = session.teacherId.toString() === userId.toString() || session.learnerId.toString() === userId.toString()
   if (!isParticipant) throw new AppError('You are not a participant of this session.', 403)
-  if (session.status !== 'accepted')
-    throw new AppError('You can only update meeting links for accepted sessions.', 400)
+  if (session.status !== 'accepted') throw new AppError('You can only update meeting links for accepted sessions.', 400)
 
   const VALID = ['jitsi', 'zoom', 'gmeet', 'teams', 'custom']
   if (!VALID.includes(platform)) throw new AppError(`Invalid platform. Choose: ${VALID.join(', ')}`, 400)
@@ -119,44 +107,32 @@ const setMeetingLink = async (userId, sessionId, { platform, customLink }) => {
   }
 
   session.meetingPlatform = platform
-  session.videoLink       = videoLink
+  session.videoLink = videoLink
   await session.save()
 
-  const otherId  = session.teacherId.toString() === userId.toString() ? session.learnerId : session.teacherId
-  const updater  = await User.findById(userId).select('name')
-  try {
-    getIO().to(`user:${otherId}`).emit('session:meeting_updated', {
-      sessionId: session._id, updatedBy: updater?.name || 'Your partner', videoLink, platform,
-    })
-  } catch (_) {}
+  const otherId = session.teacherId.toString() === userId.toString() ? session.learnerId : session.teacherId
+  const updater = await User.findById(userId).select('name')
+  try { getIO().to(`user:${otherId}`).emit('session:meeting_updated', { sessionId: session._id, updatedBy: updater?.name || 'Your partner', videoLink, platform }) } catch (_) {}
 
   return session.populate(['teacherId', 'learnerId', 'skillId'])
 }
 
-// ── Cancel (refunds held credit) ──────────────────────────────────────────────
 const cancelSession = async (userId, sessionId, reason = '') => {
   const session = await Session.findById(sessionId)
   if (!session) throw new AppError('Session not found.', 404)
-
-  const isParticipant =
-    session.teacherId.toString() === userId.toString() ||
-    session.learnerId.toString() === userId.toString()
+  const isParticipant = session.teacherId.toString() === userId.toString() || session.learnerId.toString() === userId.toString()
   if (!isParticipant) throw new AppError('You are not a participant of this session.', 403)
-  if (!['pending', 'accepted'].includes(session.status))
-    throw new AppError(`Cannot cancel a session with status: ${session.status}.`, 400)
+  if (!['pending', 'accepted'].includes(session.status)) throw new AppError(`Cannot cancel a session with status: ${session.status}.`, 400)
 
-  const byTeacher      = session.teacherId.toString() === userId.toString()
-  session.status       = 'cancelled'
-  session.cancelledBy  = userId
+  const byTeacher = session.teacherId.toString() === userId.toString()
+  session.status = 'cancelled'
+  session.cancelledBy = userId
   session.cancelReason = reason
   await session.save()
 
   if (session.creditsHeld) {
     try {
-      await creditService.refundHeldCredits({
-        learnerId: session.learnerId, amount: session.creditsAmount, sessionId: session._id,
-        reason: byTeacher ? 'Refund — teacher cancelled' : 'Refund — learner cancelled',
-      })
+      await creditService.refundHeldCredits({ learnerId: session.learnerId, amount: session.creditsAmount, sessionId: session._id, reason: byTeacher ? 'Refund — teacher cancelled' : 'Refund — learner cancelled' })
       session.creditsHeld = false
       await session.save()
     } catch (err) { console.error(`[Credit] Refund failed for ${session._id}:`, err.message) }
@@ -165,32 +141,27 @@ const cancelSession = async (userId, sessionId, reason = '') => {
   const otherId = byTeacher ? session.learnerId : session.teacherId
   try { getIO().to(`user:${otherId}`).emit('session:cancelled', { sessionId: session._id, reason, refunded: !session.creditsHeld }) } catch (_) {}
 
+  const [canceller, other, skill] = await Promise.all([
+    User.findById(userId).select('name'),
+    User.findById(otherId).select('name email'),
+    Skill.findById(session.skillId).select('name'),
+  ])
+  if (other.email) emailService.sendSessionCancelledEmail(other.email, canceller.name, skill?.name || 'session', reason).catch(() => {})
+
   return session
 }
 
-// ── Delete from history (only cancelled/completed) ────────────────────────────
 const deleteSession = async (userId, sessionId) => {
   const session = await Session.findById(sessionId)
   if (!session) throw new AppError('Session not found.', 404)
-
-  const isParticipant =
-    session.teacherId.toString() === userId.toString() ||
-    session.learnerId.toString() === userId.toString()
+  const isParticipant = session.teacherId.toString() === userId.toString() || session.learnerId.toString() === userId.toString()
   if (!isParticipant) throw new AppError('You are not a participant of this session.', 403)
-
-  const deletableStatuses = ['cancelled', 'completed']
-  if (!deletableStatuses.includes(session.status))
-    throw new AppError('Only cancelled or completed sessions can be deleted.', 400)
-
-  // Safety check — never delete if credit is still held
-  if (session.creditsHeld)
-    throw new AppError('Cannot delete this session — credit hold is still active. Contact support.', 400)
-
+  if (!['cancelled', 'completed'].includes(session.status)) throw new AppError('Only cancelled or completed sessions can be deleted.', 400)
+  if (session.creditsHeld) throw new AppError('Cannot delete this session — credit hold is still active.', 400)
   await session.deleteOne()
   return { deleted: true }
 }
 
-// ── Confirm ───────────────────────────────────────────────────────────────────
 const confirmSession = async (userId, sessionId) => {
   const session = await Session.findById(sessionId)
   if (!session) throw new AppError('Session not found.', 404)
@@ -200,12 +171,12 @@ const confirmSession = async (userId, sessionId) => {
   const isLearner = session.learnerId.toString() === userId.toString()
   if (!isTeacher && !isLearner) throw new AppError('You are not a participant.', 403)
   if (isTeacher && session.teacherConfirmed) throw new AppError('Already confirmed.', 400)
-  if (isLearner && session.learnerConfirmed) throw new AppError('Already confirmed.', 400)
+  if (isLearner && session.learnerConfirmed)  throw new AppError('Already confirmed.', 400)
 
   if (isTeacher) session.teacherConfirmed = true
-  if (isLearner) session.learnerConfirmed = true
+  if (isLearner) session.learnerConfirmed  = true
 
-  const sessionEnded  = new Date() > new Date(session.scheduledAt.getTime() + session.durationMins * 60 * 1000)
+  const sessionEnded   = new Date() > new Date(session.scheduledAt.getTime() + session.durationMins * 60 * 1000)
   const shouldComplete = (session.teacherConfirmed && session.learnerConfirmed) || sessionEnded
 
   if (shouldComplete) {
@@ -245,17 +216,12 @@ const confirmSession = async (userId, sessionId) => {
   }
 
   await session.save()
-  return {
-    session, creditsTransferred: false,
-    message: isTeacher ? 'Confirmed! Waiting for the learner.' : 'Confirmed! Waiting for the teacher.',
-  }
+  return { session, creditsTransferred: false, message: isTeacher ? 'Confirmed! Waiting for the learner.' : 'Confirmed! Waiting for the teacher.' }
 }
 
-// ── Get sessions list ─────────────────────────────────────────────────────────
 const getUserSessions = async (userId, query) => {
   const { page, limit, skip } = parsePagination(query)
   const { status, role } = query
-
   const filter = { $or: [{ teacherId: userId }, { learnerId: userId }] }
   if (status) filter.status = status
   if (role === 'teacher') { delete filter.$or; filter.teacherId = userId }
@@ -266,21 +232,17 @@ const getUserSessions = async (userId, query) => {
       .populate('teacherId', 'name avatarUrl averageRating')
       .populate('learnerId', 'name avatarUrl')
       .populate('skillId',   'name slug category')
-      .sort({ scheduledAt: -1 })
-      .skip(skip)
-      .limit(limit),
+      .sort({ scheduledAt: -1 }).skip(skip).limit(limit),
     Session.countDocuments(filter),
   ])
 
   const completedIds = sessions.filter(s => s.status === 'completed').map(s => s._id)
-  const myRatings    = completedIds.length
-    ? await Rating.find({ sessionId: { $in: completedIds }, raterId: userId }).select('sessionId')
-    : []
-  const ratedSet = new Set(myRatings.map(r => r.sessionId.toString()))
+  const myRatings    = completedIds.length ? await Rating.find({ sessionId: { $in: completedIds }, raterId: userId }).select('sessionId') : []
+  const ratedSet     = new Set(myRatings.map(r => r.sessionId.toString()))
 
   return {
     sessions: sessions.map(s => {
-      const obj        = s.toObject()
+      const obj = s.toObject()
       obj.userHasRated = ratedSet.has(s._id.toString())
       obj.canRate      = s.status === 'completed' && !ratedSet.has(s._id.toString())
       return obj
@@ -289,23 +251,15 @@ const getUserSessions = async (userId, query) => {
   }
 }
 
-// ── Get single session ────────────────────────────────────────────────────────
 const getSession = async (userId, sessionId) => {
   const session = await Session.findById(sessionId)
     .populate('teacherId', 'name avatarUrl averageRating totalSessions')
     .populate('learnerId', 'name avatarUrl')
     .populate('skillId',   'name slug category')
   if (!session) throw new AppError('Session not found.', 404)
-
-  const isParticipant =
-    session.teacherId._id.toString() === userId.toString() ||
-    session.learnerId._id.toString() === userId.toString()
+  const isParticipant = session.teacherId._id.toString() === userId.toString() || session.learnerId._id.toString() === userId.toString()
   if (!isParticipant) throw new AppError('Access denied.', 403)
   return session
 }
 
-module.exports = {
-  createSession, acceptSession, setMeetingLink,
-  cancelSession, deleteSession, confirmSession,
-  getUserSessions, getSession,
-}
+module.exports = { createSession, acceptSession, setMeetingLink, cancelSession, deleteSession, confirmSession, getUserSessions, getSession }

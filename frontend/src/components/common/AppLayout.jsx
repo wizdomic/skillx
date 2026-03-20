@@ -52,6 +52,113 @@ const NAV = [
   { to: '/skills',    label: 'Skills',    Icon: IconStar },
 ]
 
+// ── Notification Bell ─────────────────────────────────────────────────────────
+function NotificationBell() {
+  const navigate = useNavigate()
+  const { notifications, markAllRead, deleteNotification, clearAllNotifications } = useNotificationStore()
+  const [open, setOpen] = useState(false)
+  const ref = useRef(null)
+  const unread = notifications.filter(n => !n.read).length
+
+  useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  const handleOpen = () => {
+    setOpen(o => !o)
+    if (!open && unread > 0) markAllRead()
+  }
+
+  const icons = {
+    session_request: '📅',
+    session_accepted: '✅',
+    session_cancelled: '❌',
+    meeting_link: '🔗',
+    reminder: '⏰',
+    rate_prompt: '⭐',
+  }
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <button onClick={handleOpen}
+        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+        style={{ color: 'var(--text-muted)' }}
+        onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface-2)'; e.currentTarget.style.color = 'var(--text)' }}
+        onMouseLeave={e => { e.currentTarget.style.background = ''; e.currentTarget.style.color = 'var(--text-muted)' }}>
+        <span style={{ position: 'relative', display: 'inline-flex' }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0"/>
+          </svg>
+          {unread > 0 && (
+            <span style={{
+              position: 'absolute', top: '-4px', right: '-4px',
+              width: '14px', height: '14px', borderRadius: '50%',
+              background: 'var(--brand)', color: '#fff',
+              fontSize: '9px', fontWeight: 700,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              {unread > 9 ? '9+' : unread}
+            </span>
+          )}
+        </span>
+        <span className="flex-1">Notifications</span>
+      </button>
+
+      {open && (
+        <div style={{
+          position: 'absolute', bottom: '110%', left: 0,
+          width: '320px', zIndex: 50,
+          background: 'var(--surface)', border: '1px solid var(--border)',
+          borderRadius: '12px', boxShadow: 'var(--shadow-md)',
+          overflow: 'hidden',
+        }}>
+          <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <p style={{ fontWeight: 500, fontSize: '14px', color: 'var(--text)' }}>Notifications</p>
+            {notifications.length > 0 && (
+              <button onClick={clearAllNotifications}
+                style={{ fontSize: '11px', color: 'var(--text-faint)', cursor: 'pointer' }}>
+                Clear all
+              </button>
+            )}
+          </div>
+
+          <div style={{ maxHeight: '360px', overflowY: 'auto' }}>
+            {notifications.length === 0 ? (
+              <div style={{ padding: '32px 16px', textAlign: 'center' }}>
+                <p style={{ fontSize: '13px', color: 'var(--text-faint)' }}>No notifications yet</p>
+              </div>
+            ) : notifications.map(n => (
+              <div key={n.id}
+                style={{
+                  padding: '12px 16px',
+                  borderBottom: '1px solid var(--border)',
+                  background: n.read ? 'transparent' : 'var(--brand-bg)',
+                  display: 'flex', gap: '10px', alignItems: 'flex-start',
+                  cursor: n.sessionId ? 'pointer' : 'default',
+                }}
+                onClick={() => { if (n.sessionId) { navigate('/sessions'); setOpen(false) } }}>
+                <span style={{ fontSize: '18px', flexShrink: 0, marginTop: '1px' }}>
+                  {icons[n.type] || '🔔'}
+                </span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: '13px', fontWeight: 500, color: 'var(--text)', margin: 0 }}>{n.title}</p>
+                  <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '2px 0 0' }}>{n.body}</p>
+                </div>
+                <button onClick={e => { e.stopPropagation(); deleteNotification(n.id) }}
+                  style={{ color: 'var(--text-faint)', flexShrink: 0, lineHeight: 1, fontSize: '16px', cursor: 'pointer' }}>
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── People Search Modal ────────────────────────────────────────────────────────
 function PeopleSearch({ open, onClose }) {
   const nav = useNavigate()
@@ -272,6 +379,8 @@ export default function AppLayout() {
               <div className={`w-3 h-3 rounded-full bg-white shadow transition-transform duration-200 ${dark ? 'translate-x-4' : 'translate-x-0'}`} />
             </div>
           </button>
+
+          <NotificationBell />
 
           <button onClick={() => navigate(`/profile/${user?._id}`)}
             className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg transition-colors text-left"

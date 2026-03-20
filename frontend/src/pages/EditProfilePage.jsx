@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { userApi } from '../api/index'
 import { useAuthStore } from '../store/authStore'
+import { Avatar } from '../components/common/index'
 import toast from 'react-hot-toast'
 
 const TZ = ['UTC','America/New_York','America/Chicago','America/Los_Angeles','Europe/London','Europe/Paris','Asia/Kolkata','Asia/Tokyo','Australia/Sydney']
@@ -9,6 +10,8 @@ const TZ = ['UTC','America/New_York','America/Chicago','America/Los_Angeles','Eu
 export default function EditProfilePage() {
   const nav = useNavigate()
   const { user, setUser } = useAuthStore()
+  const fileRef = useRef(null)
+
   const [form, setForm] = useState({
     name:      user?.name      || '',
     username:  user?.username  || '',
@@ -17,18 +20,45 @@ export default function EditProfilePage() {
     timezone:  user?.timezone  || 'UTC',
     avatarUrl: user?.avatarUrl || '',
   })
-  const [saving, setSaving]   = useState(false)
-  const [errors, setErrors]   = useState({})
+  const [saving, setSaving]         = useState(false)
+  const [uploading, setUploading]   = useState(false)
+  const [errors, setErrors]         = useState({})
+  const [avatarPreview, setAvatarPreview] = useState(user?.avatarUrl || '')
 
   const set = (k, v) => { setForm(f => ({ ...f, [k]: v })); setErrors(e => ({ ...e, [k]: '' })) }
 
-  const save = async e => {
+  const handleAvatarFile = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (!file.type.startsWith('image/')) { toast.error('Please select an image file'); return }
+    if (file.size > 5 * 1024 * 1024) { toast.error('Image must be under 5 MB'); return }
+
+    // Local preview
+    const reader = new FileReader()
+    reader.onload = (ev) => setAvatarPreview(ev.target.result)
+    reader.readAsDataURL(file)
+
+    // Upload to Cloudinary via backend
+    setUploading(true)
+    try {
+      const formData = new FormData()
+      formData.append('avatar', file)
+      const { data } = await userApi.uploadAvatar(formData)
+      setForm(f => ({ ...f, avatarUrl: data.data.avatarUrl }))
+      setUser({ ...user, avatarUrl: data.data.avatarUrl })
+      toast.success('Avatar updated!')
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Upload failed')
+      setAvatarPreview(user?.avatarUrl || '')
+    } finally { setUploading(false) }
+  }
+
+  const save = async (e) => {
     e.preventDefault()
     const errs = {}
     if (!form.name.trim()) errs.name = 'Required'
-    if (form.username && !/^[a-z0-9_]{3,30}$/.test(form.username.toLowerCase())) {
+    if (form.username && !/^[a-z0-9_]{3,30}$/.test(form.username.toLowerCase()))
       errs.username = 'Letters, numbers and underscores only (3–30 chars)'
-    }
     if (Object.keys(errs).length) { setErrors(errs); return }
 
     setSaving(true)
@@ -54,17 +84,30 @@ export default function EditProfilePage() {
       <form onSubmit={save} className="space-y-4">
         <div className="card p-5 space-y-4">
 
-          {/* Avatar */}
+          {/* Avatar upload */}
           <div>
-            <label className="label">Avatar URL</label>
-            <input className="input" placeholder="https://…"
-              value={form.avatarUrl} onChange={e => set('avatarUrl', e.target.value)} />
-            {form.avatarUrl && (
-              <img src={form.avatarUrl} alt="preview"
-                className="mt-2 w-14 h-14 rounded-full object-cover"
-                style={{ border: '2px solid var(--brand-border)' }}
-                onError={e => { e.target.style.display = 'none' }} />
-            )}
+            <label className="label">Profile photo</label>
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                <Avatar src={avatarPreview} name={form.name} size={72} />
+                {uploading && (
+                  <div className="absolute inset-0 flex items-center justify-center rounded-full"
+                    style={{ background: 'rgba(0,0,0,0.4)' }}>
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  </div>
+                )}
+              </div>
+              <div>
+                <button type="button" onClick={() => fileRef.current?.click()}
+                  className="btn btn-white btn-sm" disabled={uploading}>
+                  {uploading ? 'Uploading…' : '📷 Upload photo'}
+                </button>
+                <p className="text-xs mt-1" style={{ color: 'var(--text-faint)' }}>
+                  JPG, PNG, GIF — max 5 MB
+                </p>
+              </div>
+            </div>
+            <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarFile} />
           </div>
 
           {/* Name */}
@@ -90,7 +133,7 @@ export default function EditProfilePage() {
             {errors.username
               ? <p className="text-red-500 text-xs mt-1">{errors.username}</p>
               : <p className="text-xs mt-1" style={{ color: 'var(--text-faint)' }}>
-                  People can search you by @{form.username || 'username'} · letters, numbers, underscores only
+                  People can search you by @{form.username || 'username'}
                 </p>
             }
           </div>
@@ -124,7 +167,7 @@ export default function EditProfilePage() {
 
         <div className="flex gap-2">
           <button type="button" onClick={() => nav(-1)} className="btn btn-white btn-md flex-1">Cancel</button>
-          <button type="submit" className="btn btn-primary btn-md flex-1" disabled={saving}>
+          <button type="submit" className="btn btn-primary btn-md flex-1" disabled={saving || uploading}>
             {saving ? 'Saving…' : 'Save changes'}
           </button>
         </div>
