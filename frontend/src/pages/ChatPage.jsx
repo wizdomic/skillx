@@ -10,25 +10,19 @@ import Loader from '../components/common/Loader'
 import toast from 'react-hot-toast'
 import { format, isToday, isYesterday } from 'date-fns'
 
-// Real MongoDB ObjectId check — blocks tmp_... IDs from reaching the server
 const isRealId = (id) => /^[a-f\d]{24}$/i.test(String(id || ''))
 
-// ── Context menu ──────────────────────────────────────────────────────────────
 function MsgMenu({ x, y, canDelete, onCopy, onDelete, onClose }) {
   const ref = useRef(null)
-
   useEffect(() => {
     const close = (e) => { if (ref.current && !ref.current.contains(e.target)) onClose() }
     document.addEventListener('mousedown', close)
     document.addEventListener('touchstart', close)
     return () => { document.removeEventListener('mousedown', close); document.removeEventListener('touchstart', close) }
   }, [onClose])
-
-  const w = 164
-  const h = canDelete ? 90 : 46
+  const w = 164, h = canDelete ? 90 : 46
   const left = Math.min(x, window.innerWidth  - w - 8)
   const top  = Math.min(y, window.innerHeight - h - 8)
-
   return (
     <div ref={ref} className="fixed z-[100] rounded-xl overflow-hidden"
       style={{ left, top, minWidth: w, background: 'var(--surface)', border: '1px solid var(--border)', boxShadow: '0 8px 30px rgba(0,0,0,0.18)' }}>
@@ -62,17 +56,17 @@ export default function ChatPage() {
   const { socket }           = useSocket()
   const { setUnreadMessages } = useNotificationStore()
 
-  const [convs, setConvs]             = useState([])
-  const [messages, setMessages]       = useState([])
-  const [input, setInput]             = useState('')
+  const [convs, setConvs]               = useState([])
+  const [messages, setMessages]         = useState([])
+  const [input, setInput]               = useState('')
   const [loadingConvs, setLoadingConvs] = useState(true)
-  const [loadingMsgs, setLoadingMsgs] = useState(false)
-  const [typing, setTyping]           = useState(false)
-  const [partner, setPartner]         = useState(null)
-  const [sending, setSending]         = useState(false)
-  const [search, setSearch]           = useState('')
-  const [menu, setMenu]               = useState(null)   // { x, y, msg }
-  const [hoveredConv, setHoveredConv] = useState(null)
+  const [loadingMsgs, setLoadingMsgs]   = useState(false)
+  const [typing, setTyping]             = useState(false)
+  const [partner, setPartner]           = useState(null)
+  const [sending, setSending]           = useState(false)
+  const [search, setSearch]             = useState('')
+  const [menu, setMenu]                 = useState(null)
+  const [hoveredConv, setHoveredConv]   = useState(null)
 
   const endRef         = useRef(null)
   const typingTimer    = useRef(null)
@@ -138,7 +132,6 @@ export default function ChatPage() {
     }
   }, [socket, refreshConvs])
 
-  // ── Delete conversation ───────────────────────────────────────────────────
   const deleteConv = async (e, pid, pname) => {
     e.stopPropagation()
     if (!window.confirm(`Delete conversation with ${pname}? This only affects your view.`)) return
@@ -151,10 +144,8 @@ export default function ChatPage() {
     } catch (err) { toast.error(err.response?.data?.message || 'Failed') }
   }
 
-  // ── Message context menu ──────────────────────────────────────────────────
   const openMenu = (e, msg) => {
-    e.preventDefault()
-    e.stopPropagation()
+    e.preventDefault(); e.stopPropagation()
     setMenu({ x: e.clientX ?? e.touches?.[0]?.clientX ?? 0, y: e.clientY ?? e.touches?.[0]?.clientY ?? 0, msg })
   }
   const startLP = (e, msg) => { longPressTimer.current = setTimeout(() => openMenu(e, msg), 480) }
@@ -164,13 +155,7 @@ export default function ChatPage() {
     if (!menu) return
     const { msg } = menu
     setMenu(null)
-
-    // Block temp messages — they don't have a real DB id yet
-    if (!isRealId(msg._id)) {
-      toast.error('Message is still sending, please wait.')
-      return
-    }
-
+    if (!isRealId(msg._id)) { toast.error('Message is still sending, please wait.'); return }
     try {
       await chatApi.deleteMessage(msg._id)
       setMessages(prev => prev.map(m => m._id === msg._id ? { ...m, deletedBySender: true, content: '' } : m))
@@ -185,12 +170,10 @@ export default function ChatPage() {
     setMenu(null)
   }
 
-  // ── Send ──────────────────────────────────────────────────────────────────
   const send = async () => {
     if (!input.trim() || !activeId || sending) return
     const content = input.trim()
     setInput('')
-    // Reset textarea height
     if (textareaRef.current) { textareaRef.current.style.height = 'auto' }
     setSending(true)
     const tempId = `tmp_${Date.now()}`
@@ -232,9 +215,9 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="flex" style={{ height: '100%', overflow: 'hidden', background: 'var(--bg)' }}>
+    // flex-1 fills the flex-column <main> reliably on all browsers
+    <div className="flex overflow-hidden" style={{ background: 'var(--bg)', height: 'calc(100dvh - 56px - 64px)' }}>
 
-      {/* Context menu */}
       {menu && (
         <MsgMenu
           x={menu.x} y={menu.y}
@@ -244,9 +227,7 @@ export default function ChatPage() {
             !menu.msg.isTemp &&
             (menu.msg.senderId === user._id || menu.msg.senderId?._id === user._id)
           }
-          onCopy={doCopy}
-          onDelete={doDeleteMsg}
-          onClose={() => setMenu(null)}
+          onCopy={doCopy} onDelete={doDeleteMsg} onClose={() => setMenu(null)}
         />
       )}
 
@@ -255,7 +236,6 @@ export default function ChatPage() {
         ${activeId ? 'hidden md:flex md:w-72' : 'flex w-full md:w-72'}`}
         style={{ background: 'var(--surface)', borderRight: '1px solid var(--border)' }}>
 
-        {/* Search header */}
         <div className="p-4 flex-shrink-0" style={{ borderBottom: '1px solid var(--border)' }}>
           <h2 className="font-bold text-base mb-3" style={{ color: 'var(--text)' }}>Messages</h2>
           <div className="relative">
@@ -267,7 +247,6 @@ export default function ChatPage() {
           </div>
         </div>
 
-        {/* Conversation list */}
         <div className="flex-1 overflow-y-auto">
           {loadingConvs ? <Loader /> : filtered.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-40 px-6 text-center gap-2">
@@ -285,7 +264,6 @@ export default function ChatPage() {
               c.lastMessage?.senderId === user._id ||
               c.lastMessage?.senderId?._id === user._id
             )
-
             return (
               <div key={c.partner?._id} className="relative"
                 onMouseEnter={() => setHoveredConv(c.partner?._id)}
@@ -324,7 +302,6 @@ export default function ChatPage() {
                   </div>
                 </button>
 
-                {/* Delete conversation button */}
                 {isHov && (
                   <button
                     onClick={e => deleteConv(e, c.partner?._id, c.partner?.name)}
@@ -346,36 +323,35 @@ export default function ChatPage() {
       {activeId ? (
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
 
-          {/* Header */}
-          <div className="flex items-center gap-3 px-4 py-3 flex-shrink-0"
-            style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)' }}>
+          {/* Header — FIX 2: reserve fixed height so typing indicator never shifts layout */}
+          <div className="flex items-center gap-3 px-4 flex-shrink-0"
+            style={{ height: 56, background: 'var(--surface)', borderBottom: '1px solid var(--border)' }}>
             <button onClick={() => nav('/chat')} className="md:hidden p-1.5 rounded-lg mr-1 transition-all"
               style={{ color: 'var(--text-muted)', background: 'var(--surface-2)' }}>←</button>
-            <div className="relative">
+            <div className="relative flex-shrink-0">
               <Avatar src={partner?.avatarUrl} name={partner?.name} size={36} />
               <div className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-green-400"
                 style={{ border: '2px solid var(--surface)' }} />
             </div>
             <div className="flex-1 min-w-0">
-              <p className="font-semibold text-sm truncate" style={{ color: 'var(--text)' }}>
+              <p className="font-semibold text-sm truncate leading-tight" style={{ color: 'var(--text)' }}>
                 {partner?.name || '…'}
               </p>
-              <p className="text-xs transition-all"
+              {/* FIX 2 cont: fixed line-height container — text swaps but height stays constant */}
+              <p className="text-xs leading-tight h-4 overflow-hidden transition-colors"
                 style={{ color: typing ? 'var(--brand)' : 'var(--text-faint)' }}>
                 {typing ? 'typing…' : 'Online'}
               </p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-shrink-0">
               {partner && (
                 <button onClick={() => nav(`/profile/${partner._id}`)} className="btn btn-white btn-sm text-xs">
                   Profile
                 </button>
               )}
               {partner && (
-                <button
-                  onClick={e => deleteConv(e, partner._id, partner.name)}
-                  title="Delete conversation"
-                  className="btn btn-danger btn-sm text-xs">
+                <button onClick={e => deleteConv(e, partner._id, partner.name)}
+                  title="Delete conversation" className="btn btn-danger btn-sm text-xs">
                   🗑️
                 </button>
               )}
@@ -387,13 +363,9 @@ export default function ChatPage() {
             {loadingMsgs ? <Loader /> : messages.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full gap-3">
                 <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl"
-                  style={{ background: 'var(--surface-2)' }}>
-                  👋
-                </div>
+                  style={{ background: 'var(--surface-2)' }}>👋</div>
                 <div className="text-center">
-                  <p className="font-semibold mb-1" style={{ color: 'var(--text)' }}>
-                    Start a conversation
-                  </p>
+                  <p className="font-semibold mb-1" style={{ color: 'var(--text)' }}>Start a conversation</p>
                   <p className="text-sm" style={{ color: 'var(--text-faint)' }}>
                     Say something nice to {partner?.name || 'them'}!
                   </p>
@@ -402,19 +374,17 @@ export default function ChatPage() {
             ) : (
               <div className="space-y-0.5">
                 {messages.map((msg, i) => {
-                  const isMe     = msg.senderId === user._id || msg.senderId?._id === user._id
-                  const prev     = messages[i - 1]
-                  const next     = messages[i + 1]
-                  const prevSame = prev && (prev.senderId === msg.senderId || prev.senderId?._id === (msg.senderId?._id || msg.senderId))
-                  const nextSame = next && (next.senderId === msg.senderId || next.senderId?._id === (msg.senderId?._id || msg.senderId))
-                  const showDate = i === 0 || fmtDate(prev?.createdAt) !== fmtDate(msg.createdAt)
-                  const isFirst  = !prevSame || showDate   // first in a group
-                  const isLast   = !nextSame               // last in a group
+                  const isMe      = msg.senderId === user._id || msg.senderId?._id === user._id
+                  const prev      = messages[i - 1]
+                  const next      = messages[i + 1]
+                  const prevSame  = prev && (prev.senderId === msg.senderId || prev.senderId?._id === (msg.senderId?._id || msg.senderId))
+                  const nextSame  = next && (next.senderId === msg.senderId || next.senderId?._id === (msg.senderId?._id || msg.senderId))
+                  const showDate  = i === 0 || fmtDate(prev?.createdAt) !== fmtDate(msg.createdAt)
+                  const isFirst   = !prevSame || showDate
+                  const isLast    = !nextSame
                   const isDeleted = msg.deletedBySender
 
-                  // Bubble corner rounding: group messages together visually
-                  const radius = 18
-                  const small  = 4
+                  const radius = 18, small = 4
                   const borderRadius = isMe
                     ? `${radius}px ${isFirst ? radius : small}px ${isLast ? small : radius}px ${radius}px`
                     : `${isFirst ? radius : small}px ${radius}px ${radius}px ${isLast ? small : radius}px`
@@ -424,8 +394,7 @@ export default function ChatPage() {
                       {showDate && (
                         <div className="flex items-center justify-center my-5">
                           <div className="flex-1 h-px" style={{ background: 'var(--border)' }} />
-                          <span className="mx-3 text-[11px] font-medium px-2"
-                            style={{ color: 'var(--text-faint)' }}>
+                          <span className="mx-3 text-[11px] font-medium px-2" style={{ color: 'var(--text-faint)' }}>
                             {fmtDate(msg.createdAt)}
                           </span>
                           <div className="flex-1 h-px" style={{ background: 'var(--border)' }} />
@@ -433,7 +402,6 @@ export default function ChatPage() {
                       )}
 
                       <div className={`flex items-end gap-2 ${isMe ? 'justify-end' : 'justify-start'} ${isFirst ? 'mt-3' : 'mt-0.5'}`}>
-                        {/* Avatar for incoming messages — only on last in group */}
                         {!isMe && (
                           <div className="w-7 flex-shrink-0 self-end mb-1">
                             {isLast ? <Avatar src={partner?.avatarUrl} name={partner?.name} size={26} /> : null}
@@ -441,14 +409,13 @@ export default function ChatPage() {
                         )}
 
                         {isDeleted ? (
-                          <div className="px-3.5 py-2 rounded-2xl text-xs italic"
+                          <div className="px-3.5 py-2 text-xs italic"
                             style={{ background: 'var(--surface-2)', color: 'var(--text-faint)', border: '1px solid var(--border)', borderRadius }}>
                             🚫 Message deleted
                           </div>
                         ) : (
                           <div
-                            className={`relative group max-w-[72%] sm:max-w-[60%] px-3.5 py-2.5 text-sm break-words
-                              select-text cursor-default ${msg.isTemp ? 'opacity-70' : ''}`}
+                            className={`relative group max-w-[72%] sm:max-w-[60%] px-3.5 py-2.5 text-sm break-words select-text cursor-default ${msg.isTemp ? 'opacity-70' : ''}`}
                             style={{
                               borderRadius,
                               ...(isMe
@@ -458,20 +425,15 @@ export default function ChatPage() {
                             }}
                             onContextMenu={e => { if (!msg.isTemp) openMenu(e, msg) }}
                             onTouchStart={e => { if (!msg.isTemp) startLP(e, msg) }}
-                            onTouchEnd={stopLP}
-                            onTouchMove={stopLP}>
-
+                            onTouchEnd={stopLP} onTouchMove={stopLP}>
                             <p className="leading-relaxed">{msg.content}</p>
-
-                            {/* Timestamp + status */}
                             <div className="flex items-center justify-end gap-1 mt-1">
                               <span className="text-[10px]"
                                 style={{ color: isMe ? 'rgba(255,255,255,0.5)' : 'var(--text-faint)' }}>
                                 {format(new Date(msg.createdAt), 'h:mm a')}
                               </span>
                               {isMe && (
-                                <span className="text-[10px]"
-                                  style={{ color: 'rgba(255,255,255,0.5)' }}>
+                                <span className="text-[10px]" style={{ color: 'rgba(255,255,255,0.5)' }}>
                                   {msg.isTemp ? '⏳' : msg.isRead ? '✓✓' : '✓'}
                                 </span>
                               )}
@@ -479,7 +441,6 @@ export default function ChatPage() {
                           </div>
                         )}
 
-                        {/* Spacer on right side for incoming (balances avatar) */}
                         {!isMe && !isLast && <div className="w-7 flex-shrink-0" />}
                       </div>
                     </div>
@@ -502,8 +463,7 @@ export default function ChatPage() {
                   ref={textareaRef}
                   className="w-full bg-transparent px-4 py-2.5 text-sm outline-none resize-none leading-relaxed"
                   style={{ color: 'var(--text)', minHeight: 42, maxHeight: 120 }}
-                  placeholder="Type a message…"
-                  rows={1}
+                  placeholder="Type a message…" rows={1}
                   value={input}
                   onChange={e => { setInput(e.target.value); emitTyping(); autoResize(e) }}
                   onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
@@ -526,9 +486,7 @@ export default function ChatPage() {
             style={{ background: 'var(--surface-2)' }}>💬</div>
           <div className="text-center">
             <p className="font-bold text-lg mb-1" style={{ color: 'var(--text)' }}>Your messages</p>
-            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-              Select a conversation from the list
-            </p>
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>Select a conversation from the list</p>
           </div>
         </div>
       )}

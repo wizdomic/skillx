@@ -1,332 +1,213 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { requestApi, skillApi, sessionApi } from '../api/index'
+import { recommendationApi, sessionApi, userApi } from '../api/index'
 import { useAuthStore } from '../store/authStore'
+import { useNotificationStore } from '../store/notificationStore'
 import { Avatar, StarRating, Modal } from '../components/common/index'
 import Loader from '../components/common/Loader'
 import toast from 'react-hot-toast'
-import { formatDistanceToNow } from 'date-fns'
 
-export default function SkillRequestBoardPage() {
-  const { user } = useAuthStore()
+const PAGE_SIZE = 9
+
+export default function DashboardPage() {
   const nav = useNavigate()
+  const { user } = useAuthStore()
+  const { ratingPrompts, dismissRatingPrompt } = useNotificationStore()
 
-  const [requests, setRequests]       = useState([])
-  const [skills, setSkills]           = useState([])
-  const [loading, setLoading]         = useState(true)
-  const [filter, setFilter]           = useState({ type: '', skillId: '' })
-  const [createModal, setCreateModal] = useState(false)
-  const [bookModal, setBookModal]     = useState(null) // the request being booked
-  const [form, setForm]               = useState({ skillId: '', type: 'offer', title: '', description: '' })
-  const [bookForm, setBookForm]       = useState({ scheduledAt: '', notes: '' })
-  const [creating, setCreating]       = useState(false)
-  const [booking, setBooking]         = useState(false)
+  const [matches, setMatches]           = useState([])
+  const [page, setPage]                 = useState(1)
+  const [totalPages, setTotalPages]     = useState(1)
+  const [total, setTotal]               = useState(0)
+  const [loading, setLoading]           = useState(true)
+  const [loadingMore, setLoadingMore]   = useState(false)
+  const [sessionModal, setSessionModal] = useState(null)
+  const [modalSkills, setModalSkills]   = useState([])
+  const [loadingSkills, setLoadingSkills] = useState(false)
+  const [form, setForm]                 = useState({ skillId: '', scheduledAt: '', notes: '' })
+  const [booking, setBooking]           = useState(false)
 
-  const load = (f = filter) =>
-    requestApi.list(
-      f.type || f.skillId
-        ? { type: f.type || undefined, skillId: f.skillId || undefined }
-        : {}
-    ).then(({ data }) => setRequests(data.data.requests))
-
-  useEffect(() => {
-    setLoading(true)
-    Promise.all([
-      load(),
-      skillApi.list({ limit: 300 }).then(({ data }) => setSkills(data.data.skills)),
-    ])
-      .catch(() => toast.error('Failed to load'))
-      .finally(() => setLoading(false))
-  }, [filter])
-
-  const handleCreate = async () => {
-    if (!form.skillId || !form.title || !form.description) {
-      toast.error('Fill in all fields'); return
-    }
-    setCreating(true)
+  const loadMatches = useCallback(async (p = 1, append = false) => {
+    if (p === 1) setLoading(true); else setLoadingMore(true)
     try {
-      await requestApi.create(form)
-      toast.success('Posted!')
-      setCreateModal(false)
-      setForm({ skillId: '', type: 'offer', title: '', description: '' })
-      load()
-    } catch { toast.error('Failed') }
-    finally { setCreating(false) }
+      const { data } = await recommendationApi.get({ page: p, limit: PAGE_SIZE })
+      const list = data.data.matches || []
+      const meta = data.meta || {}
+      setMatches(prev => append ? [...prev, ...list] : list)
+      setTotalPages(meta.totalPages || 1)
+      setTotal(meta.total || list.length)
+      setPage(p)
+    } catch { toast.error('Failed to load') }
+    finally { setLoading(false); setLoadingMore(false) }
+  }, [])
+
+  useEffect(() => { loadMatches(1) }, [loadMatches])
+
+  const openBookModal = async (match) => {
+    setSessionModal(match)
+    setForm({ skillId: '', scheduledAt: '', notes: '' })
+    const fromMatch = (match.teachSkills || []).filter(ts => ts?.skillId?.name)
+    if (fromMatch.length > 0) { setModalSkills(fromMatch); return }
+    setLoadingSkills(true)
+    try {
+      const { data } = await userApi.getUser(match.user._id)
+      setModalSkills((data.data.teachSkills || []).filter(ts => ts?.skillId?.name))
+    } catch { setModalSkills([]); toast.error('Could not load skills') }
+    finally { setLoadingSkills(false) }
   }
 
   const handleBook = async () => {
-    if (!bookForm.scheduledAt) { toast.error('Please select a date and time'); return }
+    if (!form.skillId || !form.scheduledAt) { toast.error('Select a skill and time'); return }
     setBooking(true)
     try {
-      await sessionApi.create({
-        teacherId:   bookModal.userId._id,
-        skillId:     bookModal.skillId._id,
-        scheduledAt: bookForm.scheduledAt,
-        notes:       bookForm.notes,
-      })
+      await sessionApi.create({ teacherId: sessionModal.user._id, skillId: form.skillId, scheduledAt: form.scheduledAt, notes: form.notes })
       toast.success('Session request sent!')
-      setBookModal(null)
-      setBookForm({ scheduledAt: '', notes: '' })
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to send request')
-    } finally { setBooking(false) }
-  }
-
-  const del = async id => {
-    if (!confirm('Delete this post?')) return
-    await requestApi.delete(id)
-    setRequests(p => p.filter(r => r._id !== id))
-    toast.success('Deleted')
+      setSessionModal(null); setModalSkills([]); setForm({ skillId: '', scheduledAt: '', notes: '' })
+    } catch (err) { toast.error(err.response?.data?.message || 'Failed') }
+    finally { setBooking(false) }
   }
 
   const minDT = new Date(Date.now() + 30 * 60000).toISOString().slice(0, 16)
 
-  if (loading) return <Loader />
-
   return (
-    <div className="p-6 max-w-3xl mx-auto">
+    <div style={{ maxWidth: 700, margin: '0 auto', padding: '16px 16px 8px' }}>
+
+      {/* Rating prompts */}
+      {ratingPrompts.map(p => (
+        <div key={p.sessionId} style={{
+          marginBottom: 12, padding: '10px 14px', borderRadius: 10,
+          background: 'var(--brand-bg)', border: '1px solid var(--brand-border)',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap',
+        }}>
+          <p style={{ fontSize: 13, color: 'var(--brand)', margin: 0 }}>⭐ Session done — leave a rating</p>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button className="btn btn-primary btn-sm" onClick={() => nav('/sessions')}>Rate</button>
+            <button className="btn btn-ghost btn-sm" onClick={() => dismissRatingPrompt(p.sessionId)}>Later</button>
+          </div>
+        </div>
+      ))}
+
       {/* Header */}
-      <div className="flex items-start justify-between mb-6 flex-wrap gap-3">
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, gap: 8 }}>
         <div>
-          <h1 className="text-xl font-bold" style={{ color: 'var(--text)' }}>Skill Board</h1>
-          <p className="text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>
-            Posts matched to your skills
+          <h1 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text)', margin: 0 }}>
+            {greeting()}, {user?.name?.split(' ')[0]} 👋
+          </h1>
+          <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>
+            {total > 0 ? `${total} people match your skills` : 'Add skills to find matches'}
           </p>
         </div>
-        <button onClick={() => setCreateModal(true)} className="btn btn-primary btn-md">+ Post</button>
+        <button className="btn btn-white btn-sm" onClick={() => nav('/skills')}>+ Skills</button>
       </div>
 
-      {/* Filters */}
-      <div className="flex gap-2 mb-5 flex-wrap">
-        <div className="flex rounded-lg p-0.5" style={{ background: 'var(--surface-2)' }}>
-          {[{ v: '', l: 'All' }, { v: 'offer', l: '🎓 Offering' }, { v: 'wanted', l: '📚 Wanted' }].map(({ v, l }) => (
-            <button key={v} onClick={() => setFilter(f => ({ ...f, type: v }))}
-              className="px-3 py-1.5 rounded-md text-xs font-semibold transition-all"
-              style={{
-                background: filter.type === v ? 'var(--surface)' : 'transparent',
-                color:      filter.type === v ? 'var(--text)'    : 'var(--text-muted)',
-                boxShadow:  filter.type === v ? 'var(--shadow)'  : 'none',
-              }}>
-              {l}
-            </button>
-          ))}
-        </div>
-        <select className="input w-auto text-sm" value={filter.skillId}
-          onChange={e => setFilter(f => ({ ...f, skillId: e.target.value }))}>
-          <option value="">All skills</option>
-          {skills.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
-        </select>
+      {/* Stats row */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 20 }}>
+        {[
+          { icon: '🪙', value: user?.creditBalance ?? 0, sub: 'credits',  to: '/wallet' },
+          { icon: '📅', value: user?.totalSessions ?? 0, sub: 'sessions', to: '/sessions' },
+          {
+            icon: '⭐',
+            value: user?.ratingCount ? `${Number(user.averageRating).toFixed(1)}★` : '—',
+            sub: user?.ratingCount ? `${user.ratingCount} reviews` : 'no reviews',
+            to: `/ratings/${user?._id}`,
+          },
+        ].map(s => (
+          <button key={s.sub} onClick={() => nav(s.to)} style={{
+            padding: '12px 10px', borderRadius: 10, textAlign: 'center',
+            background: 'var(--surface)', border: '1px solid var(--border)',
+            cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
+          }}>
+            <span style={{ fontSize: 20 }}>{s.icon}</span>
+            <span style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)', lineHeight: 1.2 }}>{s.value}</span>
+            <span style={{ fontSize: 11, color: 'var(--text-faint)' }}>{s.sub}</span>
+          </button>
+        ))}
       </div>
 
-      {/* Empty state */}
-      {requests.length === 0 ? (
-        <div className="card p-12 text-center">
-          <div className="text-4xl mb-3">📋</div>
-          <p className="font-semibold mb-1" style={{ color: 'var(--text)' }}>No matching posts yet</p>
-          <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
-            Posts appear here when they match your skills. Add more skills to see more posts.
-          </p>
-          <div className="flex gap-2 justify-center flex-wrap">
-            <button onClick={() => setCreateModal(true)} className="btn btn-primary btn-md">Post now</button>
-            <button onClick={() => nav('/skills')} className="btn btn-white btn-md">Add skills</button>
+      {/* Matches */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+        <p style={{ fontWeight: 600, color: 'var(--text)', margin: 0 }}>Your matches</p>
+        {total > 0 && <span style={{ fontSize: 12, color: 'var(--text-faint)' }}>{matches.length}/{total}</span>}
+      </div>
+
+      {loading ? <Loader /> : matches.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '48px 16px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12 }}>
+          <div style={{ fontSize: 40, marginBottom: 12 }}>🔍</div>
+          <p style={{ fontWeight: 600, color: 'var(--text)', marginBottom: 6 }}>No matches yet</p>
+          <p style={{ fontSize: 14, color: 'var(--text-muted)', marginBottom: 16 }}>Add skills you can teach and want to learn.</p>
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+            <button className="btn btn-primary btn-md" onClick={() => nav('/skills')}>Browse skills</button>
+            <button className="btn btn-white btn-md" onClick={() => nav('/requests')}>Skill board</button>
           </div>
         </div>
       ) : (
-        <div className="space-y-3">
-          {requests.map(req => {
-            const isOwn = req.userId?._id === user?._id
-            // offer = poster teaches → viewer can book a session
-            // wanted = poster wants to learn → viewer can message
-            const canBook    = !isOwn && req.type === 'offer'
-            const canMessage = !isOwn && req.type === 'wanted'
-
-            return (
-              <div key={req._id} className="card p-4 transition-all"
-                onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--border-2)'}
-                onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border)'}>
-                <div className="flex items-start gap-3">
-                  <button onClick={() => nav(`/profile/${req.userId?._id}`)}>
-                    <Avatar src={req.userId?.avatarUrl} name={req.userId?.name} size={38} />
-                  </button>
-                  <div className="flex-1 min-w-0">
-                    {/* Top row */}
-                    <div className="flex items-start justify-between gap-2 flex-wrap mb-1.5">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className={req.type === 'offer' ? 'badge-orange' : 'badge-blue'}>
-                          {req.type === 'offer' ? '🎓 Offering' : '📚 Wanted'}
-                        </span>
-                        <span className="badge-gray text-xs">{req.skillId?.name}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs" style={{ color: 'var(--text-faint)' }}>
-                          {formatDistanceToNow(new Date(req.createdAt), { addSuffix: true })}
-                        </span>
-                        {isOwn && (
-                          <button onClick={() => del(req._id)}
-                            className="text-xs transition-colors"
-                            style={{ color: '#ef4444' }}>
-                            Delete
-                          </button>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Content */}
-                    <h3 className="font-semibold text-sm mb-1" style={{ color: 'var(--text)' }}>
-                      {req.title}
-                    </h3>
-                    <p className="text-sm line-clamp-2 mb-2" style={{ color: 'var(--text-muted)' }}>
-                      {req.description}
-                    </p>
-
-                    {/* Poster info */}
-                    <button onClick={() => nav(`/profile/${req.userId?._id}`)}
-                      className="flex items-center gap-2 mb-3 transition-opacity hover:opacity-80">
-                      <span className="text-xs font-semibold" style={{ color: 'var(--text)' }}>
-                        {req.userId?.name}
-                      </span>
-                      {req.userId?.ratingCount > 0 && (
-                        <>
-                          <StarRating value={req.userId.averageRating || 0} readonly size={11} />
-                          <span className="text-xs" style={{ color: 'var(--text-faint)' }}>
-                            {Number(req.userId.averageRating).toFixed(1)}
-                          </span>
-                        </>
-                      )}
-                    </button>
-
-                    {/* Action buttons */}
-                    {(canBook || canMessage) && (
-                      <div className="flex gap-2 flex-wrap">
-                        {canMessage && (
-                          <button
-                            onClick={() => nav(`/chat/${req.userId?._id}`)}
-                            className="btn btn-white btn-sm">
-                            💬 Message
-                          </button>
-                        )}
-                        {canBook && (
-                          <button
-                            onClick={() => { setBookModal(req); setBookForm({ scheduledAt: '', notes: '' }) }}
-                            className="btn btn-primary btn-sm">
-                            📅 Book session
-                          </button>
-                        )}
-                        <button
-                          onClick={() => nav(`/profile/${req.userId?._id}`)}
-                          className="btn btn-ghost btn-sm">
-                          View profile →
-                        </button>
-                      </div>
-                    )}
-
-                    {isOwn && (
-                      <p className="text-xs mt-1" style={{ color: 'var(--text-faint)' }}>
-                        Your post · visible to matched users
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      )}
-
-      {/* Create modal */}
-      <Modal open={createModal} onClose={() => setCreateModal(false)} title="Post to skill board">
-        <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-2">
-            {[
-              { v: 'offer',  l: '🎓 Offering to teach', s: 'People who want to learn will see this' },
-              { v: 'wanted', l: '📚 Looking to learn',  s: 'People who can teach will see this' },
-            ].map(({ v, l, s }) => (
-              <button key={v} onClick={() => setForm(f => ({ ...f, type: v }))}
-                className="p-3 rounded-lg text-left transition-all"
-                style={{
-                  border:     `1px solid ${form.type === v ? 'var(--brand)' : 'var(--border)'}`,
-                  background: form.type === v ? 'var(--accent-bg)' : 'var(--surface-2)',
-                }}>
-                <p className="font-semibold text-sm" style={{ color: 'var(--text)' }}>{l}</p>
-                <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{s}</p>
-              </button>
+        <>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {matches.map(match => (
+              <MatchCard key={match.user._id} match={match}
+                onProfile={() => nav(`/profile/${match.user._id}`)}
+                onMessage={e => { e.stopPropagation(); nav(`/chat/${match.user._id}`) }}
+                onBook={e => { e.stopPropagation(); openBookModal(match) }} />
             ))}
           </div>
-          <div>
-            <label className="label">Skill *</label>
-            <select className="input" value={form.skillId}
-              onChange={e => setForm(f => ({ ...f, skillId: e.target.value }))}>
-              <option value="">Select…</option>
-              {skills.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="label">Title *</label>
-            <input className="input" maxLength={150}
-              placeholder={form.type === 'offer' ? 'e.g. Teaching React to beginners' : 'e.g. Looking for a guitar teacher'}
-              value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} />
-          </div>
-          <div>
-            <label className="label">Description *</label>
-            <textarea className="input resize-none" rows={4} maxLength={1000}
-              placeholder="Your experience, availability, goals…"
-              value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
-          </div>
-          <div className="flex gap-2">
-            <button className="btn btn-white btn-md flex-1" onClick={() => setCreateModal(false)}>Cancel</button>
-            <button className="btn btn-primary btn-md flex-1" onClick={handleCreate} disabled={creating}>
-              {creating ? 'Posting…' : 'Post'}
-            </button>
-          </div>
-        </div>
-      </Modal>
+          {page < totalPages && (
+            <div style={{ textAlign: 'center', marginTop: 16 }}>
+              <button className="btn btn-white btn-md" onClick={() => loadMatches(page + 1, true)} disabled={loadingMore}>
+                {loadingMore ? 'Loading…' : `Show more (${total - matches.length})`}
+              </button>
+            </div>
+          )}
+        </>
+      )}
 
-      {/* Book session modal */}
-      <Modal
-        open={!!bookModal}
-        onClose={() => { setBookModal(null); setBookForm({ scheduledAt: '', notes: '' }) }}
-        title={`Book session with ${bookModal?.userId?.name}`}>
-        {bookModal && (
-          <div className="space-y-3">
-            {/* Post summary */}
-            <div className="rounded-lg p-3 flex items-center gap-3"
-              style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}>
-              <Avatar src={bookModal.userId?.avatarUrl} name={bookModal.userId?.name} size={36} />
-              <div>
-                <p className="font-semibold text-sm" style={{ color: 'var(--text)' }}>
-                  {bookModal.userId?.name}
-                </p>
-                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                  Teaching: <span style={{ color: 'var(--brand)' }}>{bookModal.skillId?.name}</span>
-                </p>
+      {/* Book modal */}
+      <Modal open={!!sessionModal} onClose={() => { setSessionModal(null); setModalSkills([]) }} title="Request a session">
+        {sessionModal && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <button onClick={() => { setSessionModal(null); setModalSkills([]); nav(`/profile/${sessionModal.user._id}`) }}
+              style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 12, borderRadius: 10, background: 'var(--surface-2)', border: '1px solid var(--border)', cursor: 'pointer', textAlign: 'left' }}>
+              <Avatar src={sessionModal.user.avatarUrl} name={sessionModal.user.name} size={40} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ fontWeight: 600, fontSize: 14, color: 'var(--text)', margin: 0 }}>{sessionModal.user.name}</p>
+                <StarRating value={sessionModal.user.averageRating || 0} readonly size={12} />
               </div>
+              <span style={{ fontSize: 12, color: 'var(--text-faint)', flexShrink: 0 }}>Profile →</span>
+            </button>
+
+            <div>
+              <label className="label">Skill to learn *</label>
+              {loadingSkills ? (
+                <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>Loading skills…</p>
+              ) : modalSkills.length === 0 ? (
+                <p style={{ fontSize: 13, color: 'var(--text-muted)', padding: '10px 12px', background: 'var(--surface-2)', borderRadius: 8, border: '1px solid var(--border)' }}>
+                  ⚠️ This user hasn't added teach skills yet.
+                </p>
+              ) : (
+                <select className="input" value={form.skillId} onChange={e => setForm(f => ({ ...f, skillId: e.target.value }))}>
+                  <option value="">Select a skill…</option>
+                  {modalSkills.map(ts => (
+                    <option key={ts._id} value={ts.skillId._id}>{ts.skillId.name}{ts.level ? ` · ${ts.level}` : ''}</option>
+                  ))}
+                </select>
+              )}
             </div>
 
             <div>
               <label className="label">Date & time *</label>
               <input className="input" type="datetime-local" min={minDT}
-                value={bookForm.scheduledAt}
-                onChange={e => setBookForm(f => ({ ...f, scheduledAt: e.target.value }))} />
-              <p className="text-xs mt-1" style={{ color: 'var(--text-faint)' }}>
-                Sessions are 60 minutes by default
-              </p>
+                value={form.scheduledAt} onChange={e => setForm(f => ({ ...f, scheduledAt: e.target.value }))} />
             </div>
 
             <div>
               <label className="label">Notes (optional)</label>
-              <textarea className="input resize-none" rows={3}
-                placeholder="Your experience level, what you want to focus on…"
-                value={bookForm.notes}
-                onChange={e => setBookForm(f => ({ ...f, notes: e.target.value }))} />
+              <textarea className="input" style={{ resize: 'none' }} rows={2}
+                placeholder="Your level, goals, questions…"
+                value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
             </div>
 
-            <div className="flex gap-2">
-              <button className="btn btn-white btn-md flex-1"
-                onClick={() => { setBookModal(null); setBookForm({ scheduledAt: '', notes: '' }) }}>
-                Cancel
-              </button>
-              <button className="btn btn-primary btn-md flex-1"
-                onClick={handleBook} disabled={booking}>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn btn-white btn-md" style={{ flex: 1 }} onClick={() => { setSessionModal(null); setModalSkills([]) }}>Cancel</button>
+              <button className="btn btn-primary btn-md" style={{ flex: 1 }} onClick={handleBook}
+                disabled={booking || loadingSkills || !modalSkills.length}>
                 {booking ? 'Sending…' : 'Send request'}
               </button>
             </div>
@@ -335,4 +216,77 @@ export default function SkillRequestBoardPage() {
       </Modal>
     </div>
   )
+}
+
+function MatchCard({ match, onProfile, onMessage, onBook }) {
+  const { user, teachSkills = [], learnSkills = [], sharedSkillCount } = match
+  return (
+    <div onClick={onProfile} style={{
+      background: 'var(--surface)', border: '1px solid var(--border)',
+      borderRadius: 12, padding: 14, cursor: 'pointer',
+    }}>
+      {/* Top */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+        <Avatar src={user.avatarUrl} name={user.name} size={44} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+            <span style={{ fontWeight: 600, fontSize: 15, color: 'var(--text)' }}>{user.name}</span>
+            <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 7px', borderRadius: 99, background: 'var(--brand-bg)', color: 'var(--brand)' }}>
+              {sharedSkillCount} match
+            </span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <StarRating value={user.averageRating || 0} readonly size={11} />
+            <span style={{ fontSize: 11, color: 'var(--text-faint)' }}>
+              {user.ratingCount > 0 ? `${Number(user.averageRating).toFixed(1)} · ${user.ratingCount} reviews` : 'No reviews'}
+            </span>
+          </div>
+        </div>
+        {user.location && (
+          <span style={{ fontSize: 11, color: 'var(--text-faint)', flexShrink: 0 }}>📍 {user.location}</span>
+        )}
+      </div>
+
+      {/* Skills */}
+      {teachSkills.length > 0 && (
+        <div style={{ marginBottom: 6 }}>
+          <span style={{ fontSize: 11, color: 'var(--text-faint)', fontWeight: 600 }}>TEACHES  </span>
+          {teachSkills.slice(0, 4).map((ts, i) => (
+            <span key={i} style={{ display: 'inline-block', fontSize: 11, padding: '2px 8px', borderRadius: 99, background: 'var(--accent-bg)', color: 'var(--brand)', border: '1px solid var(--brand-border)', marginRight: 4, marginBottom: 4 }}>
+              {ts.skillId?.name}
+            </span>
+          ))}
+          {teachSkills.length > 4 && <span style={{ fontSize: 11, color: 'var(--text-faint)' }}>+{teachSkills.length - 4}</span>}
+        </div>
+      )}
+      {learnSkills.length > 0 && (
+        <div style={{ marginBottom: 10 }}>
+          <span style={{ fontSize: 11, color: 'var(--text-faint)', fontWeight: 600 }}>LEARNING  </span>
+          {learnSkills.slice(0, 4).map((ls, i) => (
+            <span key={i} style={{ display: 'inline-block', fontSize: 11, padding: '2px 8px', borderRadius: 99, background: 'rgba(59,130,246,0.08)', color: '#2563eb', border: '1px solid rgba(59,130,246,0.2)', marginRight: 4, marginBottom: 4 }}>
+              {ls.skillId?.name}
+            </span>
+          ))}
+          {learnSkills.length > 4 && <span style={{ fontSize: 11, color: 'var(--text-faint)' }}>+{learnSkills.length - 4}</span>}
+        </div>
+      )}
+
+      {/* Actions */}
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button onClick={onMessage} style={{ flex: 1, padding: '8px 0', borderRadius: 8, fontSize: 13, fontWeight: 600, background: 'var(--surface-2)', color: 'var(--text)', border: '1px solid var(--border)', cursor: 'pointer' }}>
+          💬 Message
+        </button>
+        <button onClick={onBook} style={{ flex: 1, padding: '8px 0', borderRadius: 8, fontSize: 13, fontWeight: 600, background: 'var(--brand)', color: '#fff', border: 'none', cursor: 'pointer' }}>
+          📅 Book
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function greeting() {
+  const h = new Date().getHours()
+  if (h < 12) return 'Good morning'
+  if (h < 17) return 'Good afternoon'
+  return 'Good evening'
 }

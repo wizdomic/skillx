@@ -23,7 +23,7 @@ export default function DashboardPage() {
   const [sessionModal, setSessionModal] = useState(null)
   const [modalSkills, setModalSkills]   = useState([])
   const [loadingSkills, setLoadingSkills] = useState(false)
-  const [form, setForm]                 = useState({ skillId:'', scheduledAt:'', notes:'' })
+  const [form, setForm]                 = useState({ skillId: '', scheduledAt: '', notes: '' })
   const [booking, setBooking]           = useState(false)
 
   const loadMatches = useCallback(async (p = 1, append = false) => {
@@ -36,7 +36,7 @@ export default function DashboardPage() {
       setTotalPages(meta.totalPages || 1)
       setTotal(meta.total || list.length)
       setPage(p)
-    } catch { toast.error('Failed to load recommendations') }
+    } catch { toast.error('Failed to load') }
     finally { setLoading(false); setLoadingMore(false) }
   }, [])
 
@@ -50,142 +50,109 @@ export default function DashboardPage() {
     setLoadingSkills(true)
     try {
       const { data } = await userApi.getUser(match.user._id)
-      const teach = (data.data.teachSkills || []).filter(ts => ts?.skillId?.name)
-      setModalSkills(teach)
-    } catch {
-      setModalSkills([])
-      toast.error('Could not load skills')
-    } finally { setLoadingSkills(false) }
+      setModalSkills((data.data.teachSkills || []).filter(ts => ts?.skillId?.name))
+    } catch { setModalSkills([]); toast.error('Could not load skills') }
+    finally { setLoadingSkills(false) }
   }
 
   const handleBook = async () => {
-    if (!form.skillId || !form.scheduledAt) {
-      toast.error('Please select a skill and a date/time')
-      return
-    }
+    if (!form.skillId || !form.scheduledAt) { toast.error('Select a skill and time'); return }
     setBooking(true)
     try {
-      await sessionApi.create({
-        teacherId:   sessionModal.user._id,
-        skillId:     form.skillId,
-        scheduledAt: form.scheduledAt,
-        notes:       form.notes,
-      })
+      await sessionApi.create({ teacherId: sessionModal.user._id, skillId: form.skillId, scheduledAt: form.scheduledAt, notes: form.notes })
       toast.success('Session request sent!')
-      setSessionModal(null)
-      setModalSkills([])
-      setForm({ skillId:'', scheduledAt:'', notes:'' })
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to send request')
-    } finally { setBooking(false) }
+      setSessionModal(null); setModalSkills([]); setForm({ skillId: '', scheduledAt: '', notes: '' })
+    } catch (err) { toast.error(err.response?.data?.message || 'Failed') }
+    finally { setBooking(false) }
   }
 
   const minDT = new Date(Date.now() + 30 * 60000).toISOString().slice(0, 16)
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
+    <div style={{ maxWidth: 700, margin: '0 auto', padding: '16px 16px 8px' }}>
 
       {/* Rating prompts */}
       {ratingPrompts.map(p => (
-        <div key={p.sessionId}
-          className="mb-4 p-3 rounded-xl flex items-center justify-between gap-3 flex-wrap"
-          style={{ background: 'var(--accent-bg)', border: '1px solid var(--accent-border)' }}>
-          <p className="text-sm font-medium" style={{ color: 'var(--brand)' }}>
-            ⭐ Session completed — leave a rating to help the community.
-          </p>
-          <div className="flex gap-2">
-            <button onClick={() => nav('/sessions')} className="btn btn-primary btn-sm">Rate now</button>
-            <button onClick={() => dismissRatingPrompt(p.sessionId)} className="btn btn-ghost btn-sm">Later</button>
+        <div key={p.sessionId} style={{
+          marginBottom: 12, padding: '10px 14px', borderRadius: 10,
+          background: 'var(--brand-bg)', border: '1px solid var(--brand-border)',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap',
+        }}>
+          <p style={{ fontSize: 13, color: 'var(--brand)', margin: 0 }}>⭐ Session done — leave a rating</p>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button className="btn btn-primary btn-sm" onClick={() => nav('/sessions')}>Rate</button>
+            <button className="btn btn-ghost btn-sm" onClick={() => dismissRatingPrompt(p.sessionId)}>Later</button>
           </div>
         </div>
       ))}
 
       {/* Header */}
-      <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, gap: 8 }}>
         <div>
-          <h1 className="text-xl font-bold" style={{ color: 'var(--text)' }}>
+          <h1 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text)', margin: 0 }}>
             {greeting()}, {user?.name?.split(' ')[0]} 👋
           </h1>
-          <p className="text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>
+          <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 2 }}>
             {total > 0 ? `${total} people match your skills` : 'Add skills to find matches'}
           </p>
         </div>
-        <button onClick={() => nav('/skills')} className="btn btn-white btn-md">+ Add skills</button>
+        <button className="btn btn-white btn-sm" onClick={() => nav('/skills')}>+ Skills</button>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-3 gap-3 mb-8">
+      {/* Stats row */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 20 }}>
         {[
-          { icon:'🪙', value: user?.creditBalance ?? 0,  sub:'credits',  to:'/wallet' },
-          { icon:'📅', value: user?.totalSessions ?? 0,  sub:'sessions', to:'/sessions' },
+          { icon: '🪙', value: user?.creditBalance ?? 0, sub: 'credits',  to: '/wallet' },
+          { icon: '📅', value: user?.totalSessions ?? 0, sub: 'sessions', to: '/sessions' },
           {
-            icon:'⭐',
+            icon: '⭐',
             value: user?.ratingCount ? `${Number(user.averageRating).toFixed(1)}★` : '—',
-            sub:   user?.ratingCount ? `${user.ratingCount} reviews` : 'no reviews',
-            to:    `/ratings/${user?._id}`,
+            sub: user?.ratingCount ? `${user.ratingCount} reviews` : 'no reviews',
+            to: `/ratings/${user?._id}`,
           },
         ].map(s => (
-          <button key={s.sub} onClick={() => nav(s.to)}
-            className="card p-4 flex items-center gap-3 transition-all text-left w-full"
-            onMouseEnter={e => {
-              e.currentTarget.style.borderColor = 'var(--border-2)'
-              e.currentTarget.style.boxShadow   = 'var(--shadow-md)'
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.borderColor = 'var(--border)'
-              e.currentTarget.style.boxShadow   = 'var(--shadow)'
-            }}>
-            <span className="text-2xl">{s.icon}</span>
-            <div>
-              <p className="font-bold text-xl leading-tight" style={{ color: 'var(--text)' }}>{s.value}</p>
-              <p className="text-xs" style={{ color: 'var(--text-faint)' }}>{s.sub}</p>
-            </div>
+          <button key={s.sub} onClick={() => nav(s.to)} style={{
+            padding: '12px 10px', borderRadius: 10, textAlign: 'center',
+            background: 'var(--surface)', border: '1px solid var(--border)',
+            cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
+          }}>
+            <span style={{ fontSize: 20 }}>{s.icon}</span>
+            <span style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)', lineHeight: 1.2 }}>{s.value}</span>
+            <span style={{ fontSize: 11, color: 'var(--text-faint)' }}>{s.sub}</span>
           </button>
         ))}
       </div>
 
-      {/* Matches header */}
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="font-bold" style={{ color: 'var(--text)' }}>Your matches</h2>
-        {total > 0 && (
-          <span className="text-xs" style={{ color: 'var(--text-faint)' }}>
-            {matches.length} of {total} shown
-          </span>
-        )}
+      {/* Matches */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+        <p style={{ fontWeight: 600, color: 'var(--text)', margin: 0 }}>Your matches</p>
+        {total > 0 && <span style={{ fontSize: 12, color: 'var(--text-faint)' }}>{matches.length}/{total}</span>}
       </div>
 
       {loading ? <Loader /> : matches.length === 0 ? (
-        <div className="card p-12 text-center">
-          <div className="text-4xl mb-3">🔍</div>
-          <h3 className="font-bold text-lg mb-2" style={{ color: 'var(--text)' }}>No matches yet</h3>
-          <p className="text-sm max-w-xs mx-auto mb-5" style={{ color: 'var(--text-muted)' }}>
-            Add skills you can teach and want to learn — we'll find people who complement you.
-          </p>
-          <div className="flex gap-2 justify-center flex-wrap">
-            <button onClick={() => nav('/skills')}   className="btn btn-primary btn-md">Browse skills</button>
-            <button onClick={() => nav('/requests')} className="btn btn-white btn-md">Skill board</button>
+        <div style={{ textAlign: 'center', padding: '48px 16px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12 }}>
+          <div style={{ fontSize: 40, marginBottom: 12 }}>🔍</div>
+          <p style={{ fontWeight: 600, color: 'var(--text)', marginBottom: 6 }}>No matches yet</p>
+          <p style={{ fontSize: 14, color: 'var(--text-muted)', marginBottom: 16 }}>Add skills you can teach and want to learn.</p>
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+            <button className="btn btn-primary btn-md" onClick={() => nav('/skills')}>Browse skills</button>
+            <button className="btn btn-white btn-md" onClick={() => nav('/requests')}>Skill board</button>
           </div>
         </div>
       ) : (
         <>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {matches.map((match, i) => (
-              <MatchCard
-                key={match.user._id}
-                match={match}
-                index={i}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {matches.map(match => (
+              <MatchCard key={match.user._id} match={match}
                 onProfile={() => nav(`/profile/${match.user._id}`)}
                 onMessage={e => { e.stopPropagation(); nav(`/chat/${match.user._id}`) }}
-                onBook={e => { e.stopPropagation(); openBookModal(match) }}
-              />
+                onBook={e => { e.stopPropagation(); openBookModal(match) }} />
             ))}
           </div>
-
           {page < totalPages && (
-            <div className="text-center mt-8">
-              <button onClick={() => loadMatches(page + 1, true)} disabled={loadingMore}
-                className="btn btn-white btn-lg">
-                {loadingMore ? 'Loading…' : `Load more (${total - matches.length} remaining)`}
+            <div style={{ textAlign: 'center', marginTop: 16 }}>
+              <button className="btn btn-white btn-md" onClick={() => loadMatches(page + 1, true)} disabled={loadingMore}>
+                {loadingMore ? 'Loading…' : `Show more (${total - matches.length})`}
               </button>
             </div>
           )}
@@ -193,49 +160,32 @@ export default function DashboardPage() {
       )}
 
       {/* Book modal */}
-      <Modal
-        open={!!sessionModal}
-        onClose={() => { setSessionModal(null); setModalSkills([]) }}
-        title="Request a session">
+      <Modal open={!!sessionModal} onClose={() => { setSessionModal(null); setModalSkills([]) }} title="Request a session">
         {sessionModal && (
-          <div className="space-y-3">
-            <button
-              onClick={() => { setSessionModal(null); setModalSkills([]); nav(`/profile/${sessionModal.user._id}`) }}
-              className="w-full flex items-center gap-3 p-3 rounded-lg transition-all text-left"
-              style={{ background: 'var(--surface-2)', border: '1px solid var(--border)' }}
-              onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--brand)'}
-              onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border)'}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            <button onClick={() => { setSessionModal(null); setModalSkills([]); nav(`/profile/${sessionModal.user._id}`) }}
+              style={{ display: 'flex', alignItems: 'center', gap: 10, padding: 12, borderRadius: 10, background: 'var(--surface-2)', border: '1px solid var(--border)', cursor: 'pointer', textAlign: 'left' }}>
               <Avatar src={sessionModal.user.avatarUrl} name={sessionModal.user.name} size={40} />
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold text-sm" style={{ color: 'var(--text)' }}>
-                  {sessionModal.user.name}
-                </p>
-                <StarRating value={sessionModal.user.averageRating || 0} readonly size={13} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ fontWeight: 600, fontSize: 14, color: 'var(--text)', margin: 0 }}>{sessionModal.user.name}</p>
+                <StarRating value={sessionModal.user.averageRating || 0} readonly size={12} />
               </div>
-              <span className="text-xs" style={{ color: 'var(--text-faint)' }}>View profile →</span>
+              <span style={{ fontSize: 12, color: 'var(--text-faint)', flexShrink: 0 }}>Profile →</span>
             </button>
 
             <div>
               <label className="label">Skill to learn *</label>
               {loadingSkills ? (
-                <div className="flex items-center gap-2 py-2">
-                  <div className="w-4 h-4 rounded-full border-2 animate-spin"
-                    style={{ borderColor: 'var(--border)', borderTopColor: 'var(--brand)' }} />
-                  <span className="text-sm" style={{ color: 'var(--text-muted)' }}>Loading skills…</span>
-                </div>
+                <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>Loading skills…</p>
               ) : modalSkills.length === 0 ? (
-                <div className="p-3 rounded-lg text-sm"
-                  style={{ background: 'var(--surface-2)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>
-                  ⚠️ This user hasn't added any teach skills yet.
-                </div>
+                <p style={{ fontSize: 13, color: 'var(--text-muted)', padding: '10px 12px', background: 'var(--surface-2)', borderRadius: 8, border: '1px solid var(--border)' }}>
+                  ⚠️ This user hasn't added teach skills yet.
+                </p>
               ) : (
-                <select className="input" value={form.skillId}
-                  onChange={e => setForm(f => ({ ...f, skillId: e.target.value }))}>
+                <select className="input" value={form.skillId} onChange={e => setForm(f => ({ ...f, skillId: e.target.value }))}>
                   <option value="">Select a skill…</option>
                   {modalSkills.map(ts => (
-                    <option key={ts._id} value={ts.skillId._id}>
-                      {ts.skillId.name}{ts.level ? ` · ${ts.level}` : ''}
-                    </option>
+                    <option key={ts._id} value={ts.skillId._id}>{ts.skillId.name}{ts.level ? ` · ${ts.level}` : ''}</option>
                   ))}
                 </select>
               )}
@@ -244,27 +194,19 @@ export default function DashboardPage() {
             <div>
               <label className="label">Date & time *</label>
               <input className="input" type="datetime-local" min={minDT}
-                value={form.scheduledAt}
-                onChange={e => setForm(f => ({ ...f, scheduledAt: e.target.value }))} />
-              <p className="text-xs mt-1" style={{ color: 'var(--text-faint)' }}>
-                Sessions are 60 minutes by default
-              </p>
+                value={form.scheduledAt} onChange={e => setForm(f => ({ ...f, scheduledAt: e.target.value }))} />
             </div>
 
             <div>
               <label className="label">Notes (optional)</label>
-              <textarea className="input resize-none" rows={3}
-                placeholder="Your experience level, goals, questions…"
-                value={form.notes}
-                onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
+              <textarea className="input" style={{ resize: 'none' }} rows={2}
+                placeholder="Your level, goals, questions…"
+                value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
             </div>
 
-            <div className="flex gap-2">
-              <button className="btn btn-white btn-md flex-1"
-                onClick={() => { setSessionModal(null); setModalSkills([]) }}>
-                Cancel
-              </button>
-              <button className="btn btn-primary btn-md flex-1" onClick={handleBook}
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn btn-white btn-md" style={{ flex: 1 }} onClick={() => { setSessionModal(null); setModalSkills([]) }}>Cancel</button>
+              <button className="btn btn-primary btn-md" style={{ flex: 1 }} onClick={handleBook}
                 disabled={booking || loadingSkills || !modalSkills.length}>
                 {booking ? 'Sending…' : 'Send request'}
               </button>
@@ -276,109 +218,65 @@ export default function DashboardPage() {
   )
 }
 
-// ── Match Card ────────────────────────────────────────────────────────────────
-function MatchCard({ match, index, onProfile, onMessage, onBook }) {
+function MatchCard({ match, onProfile, onMessage, onBook }) {
   const { user, teachSkills = [], learnSkills = [], sharedSkillCount } = match
-  const delay = Math.min(index, 4) + 1
-
   return (
-    <div
-      className={`fade-up-${delay} rounded-xl p-5 flex flex-col cursor-pointer transition-all duration-200`}
-      style={{ background: 'var(--surface)', border: '1px solid var(--border)', boxShadow: 'var(--shadow)' }}
-      onClick={onProfile}
-      onMouseEnter={e => {
-        e.currentTarget.style.transform   = 'translateY(-2px)'
-        e.currentTarget.style.borderColor = 'var(--border-2)'
-        e.currentTarget.style.boxShadow   = 'var(--shadow-md)'
-      }}
-      onMouseLeave={e => {
-        e.currentTarget.style.transform   = 'translateY(0)'
-        e.currentTarget.style.borderColor = 'var(--border)'
-        e.currentTarget.style.boxShadow   = 'var(--shadow)'
-      }}>
-
-      <div className="flex items-start justify-between mb-3">
-        <Avatar src={user.avatarUrl} name={user.name} size={48} />
-        <span className="badge-orange text-xs">
-          {sharedSkillCount} match{sharedSkillCount !== 1 ? 'es' : ''}
-        </span>
+    <div onClick={onProfile} style={{
+      background: 'var(--surface)', border: '1px solid var(--border)',
+      borderRadius: 12, padding: 14, cursor: 'pointer',
+    }}>
+      {/* Top */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+        <Avatar src={user.avatarUrl} name={user.name} size={44} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+            <span style={{ fontWeight: 600, fontSize: 15, color: 'var(--text)' }}>{user.name}</span>
+            <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 7px', borderRadius: 99, background: 'var(--brand-bg)', color: 'var(--brand)' }}>
+              {sharedSkillCount} match
+            </span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <StarRating value={user.averageRating || 0} readonly size={11} />
+            <span style={{ fontSize: 11, color: 'var(--text-faint)' }}>
+              {user.ratingCount > 0 ? `${Number(user.averageRating).toFixed(1)} · ${user.ratingCount} reviews` : 'No reviews'}
+            </span>
+          </div>
+        </div>
+        {user.location && (
+          <span style={{ fontSize: 11, color: 'var(--text-faint)', flexShrink: 0 }}>📍 {user.location}</span>
+        )}
       </div>
 
-      <p className="font-bold text-base mb-0.5" style={{ color: 'var(--text)' }}>{user.name}</p>
-      {user.location && (
-        <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>📍 {user.location}</p>
-      )}
-
-      <div className="flex items-center gap-1.5 mb-4">
-        <StarRating value={user.averageRating || 0} readonly size={13} />
-        <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
-          {user.ratingCount > 0
-            ? `${Number(user.averageRating).toFixed(1)} · ${user.ratingCount} review${user.ratingCount !== 1 ? 's' : ''}`
-            : 'No reviews yet'}
-        </span>
-      </div>
-
+      {/* Skills */}
       {teachSkills.length > 0 && (
-        <div className="mb-3">
-          <p className="text-[10px] font-bold uppercase tracking-wider mb-1.5"
-            style={{ color: 'var(--text-faint)' }}>🎓 Teaches</p>
-          <div className="flex flex-wrap gap-1">
-            {teachSkills.slice(0, 4).map((ts, i) => (
-              <span key={i} className="badge-orange" style={{ fontSize: '11px' }}>
-                {ts.skillId?.name || '—'}
-              </span>
-            ))}
-            {teachSkills.length > 4 && (
-              <span className="badge-gray" style={{ fontSize: '11px' }}>
-                +{teachSkills.length - 4} more
-              </span>
-            )}
-          </div>
+        <div style={{ marginBottom: 6 }}>
+          <span style={{ fontSize: 11, color: 'var(--text-faint)', fontWeight: 600 }}>TEACHES  </span>
+          {teachSkills.slice(0, 4).map((ts, i) => (
+            <span key={i} style={{ display: 'inline-block', fontSize: 11, padding: '2px 8px', borderRadius: 99, background: 'var(--accent-bg)', color: 'var(--brand)', border: '1px solid var(--brand-border)', marginRight: 4, marginBottom: 4 }}>
+              {ts.skillId?.name}
+            </span>
+          ))}
+          {teachSkills.length > 4 && <span style={{ fontSize: 11, color: 'var(--text-faint)' }}>+{teachSkills.length - 4}</span>}
         </div>
       )}
-
       {learnSkills.length > 0 && (
-        <div className="mb-4">
-          <p className="text-[10px] font-bold uppercase tracking-wider mb-1.5"
-            style={{ color: 'var(--text-faint)' }}>📚 Wants to learn</p>
-          <div className="flex flex-wrap gap-1">
-            {learnSkills.slice(0, 4).map((ls, i) => (
-              <span key={i} className="badge-blue" style={{ fontSize: '11px' }}>
-                {ls.skillId?.name || '—'}
-              </span>
-            ))}
-            {learnSkills.length > 4 && (
-              <span className="badge-gray" style={{ fontSize: '11px' }}>
-                +{learnSkills.length - 4} more
-              </span>
-            )}
-          </div>
+        <div style={{ marginBottom: 10 }}>
+          <span style={{ fontSize: 11, color: 'var(--text-faint)', fontWeight: 600 }}>LEARNING  </span>
+          {learnSkills.slice(0, 4).map((ls, i) => (
+            <span key={i} style={{ display: 'inline-block', fontSize: 11, padding: '2px 8px', borderRadius: 99, background: 'rgba(59,130,246,0.08)', color: '#2563eb', border: '1px solid rgba(59,130,246,0.2)', marginRight: 4, marginBottom: 4 }}>
+              {ls.skillId?.name}
+            </span>
+          ))}
+          {learnSkills.length > 4 && <span style={{ fontSize: 11, color: 'var(--text-faint)' }}>+{learnSkills.length - 4}</span>}
         </div>
       )}
 
-      {teachSkills.length === 0 && learnSkills.length === 0 && (
-        <p className="text-xs mb-4 italic" style={{ color: 'var(--text-faint)' }}>No skills added yet</p>
-      )}
-
-      {user.bio && (
-        <p className="text-xs mb-4 line-clamp-2 italic" style={{ color: 'var(--text-muted)' }}>
-          "{user.bio}"
-        </p>
-      )}
-
-      <div className="flex gap-2 mt-auto">
-        <button onClick={onMessage}
-          className="flex-1 py-2 rounded-lg text-xs font-semibold transition-all"
-          style={{ background: 'var(--surface-2)', color: 'var(--text)', border: '1px solid var(--border)' }}
-          onMouseEnter={e => e.currentTarget.style.borderColor = 'var(--border-2)'}
-          onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border)'}>
+      {/* Actions */}
+      <div style={{ display: 'flex', gap: 8 }}>
+        <button onClick={onMessage} style={{ flex: 1, padding: '8px 0', borderRadius: 8, fontSize: 13, fontWeight: 600, background: 'var(--surface-2)', color: 'var(--text)', border: '1px solid var(--border)', cursor: 'pointer' }}>
           💬 Message
         </button>
-        <button onClick={onBook}
-          className="flex-1 py-2 rounded-lg text-xs font-semibold transition-all active:scale-95"
-          style={{ background: 'var(--brand)', color: '#fff' }}
-          onMouseEnter={e => e.currentTarget.style.background = 'var(--brand-hover)'}
-          onMouseLeave={e => e.currentTarget.style.background = 'var(--brand)'}>
+        <button onClick={onBook} style={{ flex: 1, padding: '8px 0', borderRadius: 8, fontSize: 13, fontWeight: 600, background: 'var(--brand)', color: '#fff', border: 'none', cursor: 'pointer' }}>
           📅 Book
         </button>
       </div>
