@@ -95,6 +95,18 @@ export default function SessionsPage() {
     } finally { setBusy(null) }
   }
 
+  const deleteSession = async (id) => {
+    if (!window.confirm('Remove this session from your history?')) return
+    setBusy(id + 'delete')
+    try {
+      await sessionApi.delete(id)
+      setSessions(p => p.filter(s => s._id !== id))
+      toast.success('Removed')
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to remove')
+    } finally { setBusy(null) }
+  }
+
   return (
     <div style={{ maxWidth: 640, margin: '0 auto', padding: '16px 16px 8px' }}>
 
@@ -262,6 +274,12 @@ export default function SessionsPage() {
                     <button onClick={() => setCancelModal(s)}
                       style={{ flex: 1, padding: '8px 0', borderRadius: 8, fontSize: 13, fontWeight: 600, background: 'transparent', color: '#ef4444', border: '1px solid #fca5a5', cursor: 'pointer', minWidth: 80 }}>
                       Cancel
+                    </button>
+                  )}
+                  {['cancelled', 'completed'].includes(s.status) && (
+                    <button onClick={() => deleteSession(s._id)} disabled={busy === s._id + 'delete'}
+                      style={{ padding: '8px 12px', borderRadius: 8, fontSize: 13, fontWeight: 500, background: 'transparent', color: 'var(--text-faint)', border: '1px solid var(--border)', cursor: 'pointer' }}>
+                      {busy === s._id + 'delete' ? '…' : '🗑 Remove'}
                     </button>
                   )}
                 </div>
