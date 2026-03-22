@@ -6,7 +6,6 @@ const Rating     = require('../../models/Rating')
 const creditService = require('../credits/credit.service')
 const { AppError }  = require('../../middleware/errorHandler')
 const { parsePagination, buildMeta } = require('../../utils/paginate')
-const emailService  = require('../../services/emailService')
 const { getIO }     = require('../../config/socket')
 const { MAX_SESSIONS_PER_PAIR_PER_WEEK } = require('../../config/env')
 
@@ -57,7 +56,6 @@ const createSession = async (learnerId, { teacherId, skillId, scheduledAt, durat
   }
 
   try { getIO().to(`user:${teacherId}`).emit('session:new_request', { sessionId: session._id, learnerName: learner.name, skillName: skill.name, scheduledAt: session.scheduledAt }) } catch (_) {}
-  if (teacher.email) emailService.sendSessionRequestEmail(teacher.email, learner.name, skill.name, session.scheduledAt).catch(() => {})
 
   return session.populate(['teacherId', 'learnerId', 'skillId'])
 }
@@ -77,12 +75,11 @@ const acceptSession = async (teacherId, sessionId) => {
 
   const [teacher, learner, skill] = await Promise.all([
     User.findById(session.teacherId).select('name'),
-    User.findById(session.learnerId).select('name email'),
+    User.findById(session.learnerId).select('name'),
     Skill.findById(session.skillId).select('name'),
   ])
 
   try { getIO().to(`user:${session.learnerId}`).emit('session:accepted', { sessionId: session._id }) } catch (_) {}
-  if (learner.email) emailService.sendSessionAcceptedEmail(learner.email, teacher.name, skill.name, session.scheduledAt).catch(() => {})
 
   return session.populate(['teacherId', 'learnerId', 'skillId'])
 }
@@ -143,10 +140,9 @@ const cancelSession = async (userId, sessionId, reason = '') => {
 
   const [canceller, other, skill] = await Promise.all([
     User.findById(userId).select('name'),
-    User.findById(otherId).select('name email'),
+    User.findById(otherId).select('name'),
     Skill.findById(session.skillId).select('name'),
   ])
-  if (other.email) emailService.sendSessionCancelledEmail(other.email, canceller.name, skill?.name || 'session', reason).catch(() => {})
 
   return session
 }
