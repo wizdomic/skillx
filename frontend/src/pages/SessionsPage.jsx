@@ -48,7 +48,7 @@ export default function SessionsPage() {
 
   useEffect(() => { load() }, [load])
 
-  const isTeacher    = s => s.teacherId?._id === user?._id
+  const isTeacher    = s => String(s.teacherId?._id || s.teacherId) === String(user?._id)
   const partner      = s => isTeacher(s) ? s.learnerId : s.teacherId
   const hasConfirmed = s => isTeacher(s) ? s.teacherConfirmed : s.learnerConfirmed
   const pendingCount = sessions.filter(s => s.status === 'pending' && isTeacher(s)).length
